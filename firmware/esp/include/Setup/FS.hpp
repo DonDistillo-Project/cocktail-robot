@@ -1,7 +1,7 @@
 #ifndef SETUP_FS
 #define SETUP_FS
 
-#include "FS.h"
+#include <FS.h>
 #include <LittleFS.h>
 
 void setupFS()

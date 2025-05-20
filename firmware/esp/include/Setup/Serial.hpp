@@ -7,6 +7,7 @@ void setupSerial(unsigned long baud = 9600, unsigned long timeout = 10000)
 {
     Serial.begin(baud);
     Serial.setTimeout(timeout);
+    delay(250);
     Serial.println("Serial Setup Complete");
 }
 #endif

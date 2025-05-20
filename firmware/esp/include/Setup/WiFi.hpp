@@ -3,7 +3,7 @@
 
 #include "Setup.hpp"
 
-#include <string>
+#include <WString.h>
 #include <WiFi.h>
 #include <optional>
 
