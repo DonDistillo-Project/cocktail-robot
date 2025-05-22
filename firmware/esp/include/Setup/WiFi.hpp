@@ -3,16 +3,7 @@
 
 #include "Setup.hpp"
 
-#include <WString.h>
 #include <WiFi.h>
-#include <optional>
-
-#define WIFI_FS_DIR "/wifi/"
-#define WIFI_SSID_FILE "/wifi/ssid"
-#define WIFI_PASS_FILE "/wifi/pass"
-
-#define WIFI_RETRY_TIMES 20
-#define WIFI_RETRY_DELAY 1000
 
 String explainWiFiStatusCode(wl_status_t status)
 {
