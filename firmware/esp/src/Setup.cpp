@@ -3,6 +3,7 @@
 #include "Setup/Serial.hpp"
 #include "Setup/FS.hpp"
 #include "Setup/WiFi.hpp"
+#include "Setup/Scale.hpp"
 
 void setup()
 {
@@ -14,5 +15,8 @@ void setup()
 #endif
 #ifdef SETUP_WIFI
     setupWifi();
+#endif
+#ifdef SETUP_SCALE
+    setupScale();
 #endif
 }
