@@ -1,18 +1,17 @@
 #ifndef SETUP_SCALE
 #define SETUP_SCALE
-
 #include "Setup.hpp"
 
 double scale_linear_factor = SCALE_LIN_FAC;
 double scale_offset = SCALE_START_OFFSET;
 
-double ReadScaleRaw()
+double readScaleRaw()
 {
     unsigned long count;
     unsigned char i;
     bool Flag = 0;
 
-    digitalWrite(SCALE_CLK_PIN, HIGH);
+    digitalWrite(SCALE_DAT_PIN, HIGH);
     delayMicroseconds(1);
 
     digitalWrite(SCALE_CLK_PIN, LOW);
@@ -37,17 +36,17 @@ double ReadScaleRaw()
     digitalWrite(SCALE_CLK_PIN, LOW);
     delayMicroseconds(1);
 
-    return (double)count;
+    return static_cast<double>(count);
 }
 
-void SetScaleOffset()
+void setScaleOffset()
 {
-    scale_offset = (double)ReadScaleRaw();
+    scale_offset = (double)readScaleRaw();
 }
 
-double GetScaleWeight()
+double getScaleWeight()
 {
-    return scale_linear_factor * ReadScaleRaw() - scale_offset;
+    return scale_linear_factor * (readScaleRaw() - scale_offset);
 }
 
 void setupScale()

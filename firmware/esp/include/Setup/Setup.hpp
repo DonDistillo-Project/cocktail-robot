@@ -15,10 +15,10 @@
 #define SERIAL_BAUD 9600
 #define SERIAL_TIMEOUT 10000
 
-#define SCALE_CLK_PIN GPIO_NUM_16
-#define SCALE_DAT_PIN GPIO_NUM_17
-#define SCALE_LIN_FAC 0.0
-#define SCALE_START_OFFSET 0.0
+#define SCALE_CLK_PIN A4
+#define SCALE_DAT_PIN A5
+#define SCALE_LIN_FAC 0.00253508
+#define SCALE_START_OFFSET 8507165.45
 
 class SetupError : public std::exception
 {
