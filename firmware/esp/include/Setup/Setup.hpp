@@ -20,6 +20,13 @@
 #define SCALE_LIN_FAC 0.00253508
 #define SCALE_START_OFFSET 8507165.45
 
+#define MIC_I2S_SCK 26
+#define MIC_I2S_WS 25
+#define MIC_I2S_SD 22
+#define MIC_SR 32000
+#define MIC_DMA_BUF_COUNT 8
+#define MIC_DMA_BUF_LEN 64
+
 class SetupError : public std::exception
 {
 protected:
