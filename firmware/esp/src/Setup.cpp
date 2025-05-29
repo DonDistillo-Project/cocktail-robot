@@ -4,6 +4,7 @@
 #include "Setup/FS.hpp"
 #include "Setup/WiFi.hpp"
 #include "Setup/Scale.hpp"
+#include "Setup/Mic.hpp"
 
 void setup()
 {
@@ -18,5 +19,8 @@ void setup()
 #endif
 #ifdef SETUP_SCALE
     setupScale();
+#endif
+#ifdef SETUP_MIC
+    SetupMic();
 #endif
 }
