@@ -27,6 +27,13 @@
 #define MIC_DMA_BUF_COUNT 8
 #define MIC_DMA_BUF_LEN 64
 
+#define SPEAKER_I2S_SCK GPIO_NUM_13
+#define SPEAKER_I2S_WS GPIO_NUM_15
+#define SPEAKER_I2S_SD GPIO_NUM_8
+#define SPEAKER_SR 48000
+#define SPEAKER_DMA_BUF_COUNT 4
+#define SPEAKER_DMA_BUF_LEN 1024
+
 class SetupError : public std::exception
 {
 protected:
