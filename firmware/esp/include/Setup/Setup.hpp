@@ -15,6 +15,11 @@
 #define SERIAL_BAUD 9600
 #define SERIAL_TIMEOUT 10000
 
+#define SCALE_CLK_PIN 32
+#define SCALE_DAT_PIN 33
+#define SCALE_LIN_FAC 0.00253508
+#define SCALE_START_OFFSET 8506971.577783272
+
 class SetupError : public std::exception
 {
 protected:
