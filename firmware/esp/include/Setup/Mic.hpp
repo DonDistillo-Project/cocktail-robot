@@ -7,14 +7,14 @@
 
 #include <driver/i2s.h>
 
-int32_t mic_buffer[64];
+int16_t mic_buffer[MIC_DMA_BUF_LEN];
 
 void SetupMic()
 {
     i2s_config_t i2s_config = {
         .mode = (i2s_mode_t)(I2S_MODE_MASTER | I2S_MODE_RX),
         .sample_rate = MIC_SR,
-        .bits_per_sample = I2S_BITS_PER_SAMPLE_32BIT,
+        .bits_per_sample = I2S_BITS_PER_SAMPLE_16BIT,
         .channel_format = I2S_CHANNEL_FMT_ONLY_LEFT,
         .communication_format = I2S_COMM_FORMAT_STAND_I2S,
         .intr_alloc_flags = ESP_INTR_FLAG_LEVEL1,
@@ -36,7 +36,7 @@ void SetupMic()
     i2s_set_pin(MIC_I2S_NUM, &pin_config);
 }
 
-size_t readMic(int32_t *buf = mic_buffer, size_t buf_size = sizeof(mic_buffer))
+size_t readMic(int16_t *buf = mic_buffer, size_t buf_size = sizeof(mic_buffer))
 {
     size_t bytes_read;
     i2s_read(MIC_I2S_NUM, &mic_buffer, sizeof(mic_buffer), &bytes_read, portMAX_DELAY);
