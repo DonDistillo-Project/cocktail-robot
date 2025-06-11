@@ -1,20 +1,20 @@
-from mixing_mode import validate_and_parse_args
+from mixing_mode import validate_and_parse_arguments
 
 
-def test_mit_fehlendem_rezept_schluessel():
-    """Prüft den Fall, dass der Top-Level 'rezept'-Schlüssel fehlt."""
-    args_ohne_rezept = {"name": "Wasser", "schritte": []}
+def test_with_missing_recipe_key():
+    """Tests the case where the top-level 'rezept' key is missing."""
+    args_without_recipe = {"name": "Wasser", "schritte": []}
 
-    rezept_obj, error_message = validate_and_parse_args(args_ohne_rezept)
+    recipe_object, error_message = validate_and_parse_arguments(args_without_recipe)
 
-    assert rezept_obj is None
+    assert recipe_object is None
     assert error_message is not None
     assert "rezept" in error_message
     assert "Field required" in error_message
 
 
-def test_mit_fehlendem_schluessel_bei_zutat():
-    """Prüft, ob ein fehlendes, erforderliches Feld zu einem Validierungsfehler führt."""
+def test_with_missing_key_in_ingredient():
+    """Tests if a missing required field in an ingredient leads to a validation error."""
     args = {
         "rezept": {
             "name": "Caipirinha",
@@ -23,17 +23,17 @@ def test_mit_fehlendem_schluessel_bei_zutat():
             ],
         }
     }
-    rezept_obj, error_message = validate_and_parse_args(args)
+    recipe_object, error_message = validate_and_parse_arguments(args)
 
-    assert rezept_obj is None
+    assert recipe_object is None
     assert error_message is not None
-    assert "ZutatSchritt.name" in error_message
+    assert "IngredientStep.name" in error_message
     assert "Field required" in error_message
 
 
-def test_mit_unerlaubtem_feld_bei_anweisung():
+def test_with_disallowed_field_in_instruction():
     """
-    Prüft, ob ein zusätzliches, nicht erlaubtes Feld zu einem Fehler führt.
+    Tests if an additional, not allowed field in an instruction step leads to an error.
     """
     args = {
         "rezept": {
@@ -41,16 +41,16 @@ def test_mit_unerlaubtem_feld_bei_anweisung():
             "schritte": [{"typ": "anweisung", "beschreibung": "Glas mit Eis füllen.", "menge": 10}],
         }
     }
-    rezept_obj, error_message = validate_and_parse_args(args)
+    recipe_object, error_message = validate_and_parse_arguments(args)
 
-    assert rezept_obj is None
+    assert recipe_object is None
     assert error_message is not None
     assert "menge" in error_message
     assert "Extra inputs are not permitted" in error_message
 
 
-def test_mit_falschem_datentyp():
-    """Prüft, ob ein falscher Datentyp (string statt number) erkannt wird."""
+def test_with_incorrect_data_type():
+    """Tests if an incorrect data type (string instead of number) is detected."""
     args = {
         "rezept": {
             "name": "Rum Cola",
@@ -65,9 +65,9 @@ def test_mit_falschem_datentyp():
             ],
         }
     }
-    rezept_obj, error_message = validate_and_parse_args(args)
+    recipe_object, error_message = validate_and_parse_arguments(args)
 
-    assert rezept_obj is None
+    assert recipe_object is None
     assert error_message is not None
-    assert "ZutatSchritt.menge" in error_message
+    assert "IngredientStep.menge" in error_message
     assert "Input should be a valid number" in error_message
