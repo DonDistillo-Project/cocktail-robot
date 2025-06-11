@@ -11,7 +11,7 @@ def start_mixing_mode(rezept: List[dict]) -> str:  # TODO:
     return info
 
 
-def validate_rezept(rezept: Dict[str, Any]) -> Tuple[bool, str]:
+def validate_mixmode_args(llm_args: Dict[str, Any]) -> Tuple[bool, str]:
     """
     Validiert, ob das Rezept-Dict der spezifizierten Struktur entspricht (siehe Wiki für Spezifikation).
 
@@ -19,6 +19,24 @@ def validate_rezept(rezept: Dict[str, Any]) -> Tuple[bool, str]:
         Ein Tupel (bool, str). (True, "") bei Erfolg.
         (False, "Fehlermeldung") bei einem Validierungsfehler.
     """
+
+    if not isinstance(llm_args, dict):
+        return False, "Validierungsfehler: Die LLM-Argumente sind kein Dictionary."
+
+    if "rezept" not in llm_args:
+        return (
+            False,
+            "Validierungsfehler: Im Argumente-Dictionary fehlt der erforderliche Schlüssel 'rezept'.",
+        )
+
+    if len(llm_args.keys()) > 1:
+        extra_keys = set(llm_args.keys()) - {"rezept"}
+        return (
+            False,
+            f"Validierungsfehler: Das Argumente-Dictionary enthält unerlaubte Schlüssel: {extra_keys}.",
+        )
+
+    rezept = llm_args["rezept"]
 
     if not isinstance(rezept, dict):
         return False, "Fehler: Das Rezept ist kein Dictionary."
@@ -126,18 +144,28 @@ def handle_function_calls(llm, function_calls):
                     "Error: Could not parse arguments for function call (not a valid JSON document):\n"
                     + args_str
                 )
-                # TODO: pass info back to LLM so that it can fix it
-            else:
-                if not validate_rezept():
-                    pass  # TODO: pass info back to LLM so that it can fix it
-
-                mix_results = start_mixing_mode(args["rezept"])
-
-                llm.return_function_call(mix_results, call)
+                llm.return_function_call(e.msg, call)
                 response = llm.generate_response()
                 print(response.text)
 
                 handle_function_calls(llm, response.function_calls)
+            else:
+                is_valid, error_msg = validate_mixmode_args(args)
+
+                if not is_valid:
+                    llm.return_function_call(error_msg, call)
+                    response = llm.generate_response()
+                    print(response.text)
+
+                    handle_function_calls(llm, response.function_calls)
+                else:
+                    mix_results = start_mixing_mode(args["rezept"])
+
+                    llm.return_function_call(mix_results, call)
+                    response = llm.generate_response()
+                    print(response.text)
+
+                    handle_function_calls(llm, response.function_calls)
 
 
 def main():

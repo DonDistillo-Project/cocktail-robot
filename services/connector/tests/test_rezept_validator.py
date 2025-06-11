@@ -1,4 +1,4 @@
-from main import validate_rezept
+from main import validate_mixmode_args
 
 
 def test_mit_gueltigem_rezept():
@@ -15,7 +15,7 @@ def test_mit_gueltigem_rezept():
             {"typ": "anweisung", "beschreibung": "Mit einem Stößel leicht andrücken."},
         ],
     }
-    is_valid, error_message = validate_rezept(valid_cocktail)
+    is_valid, error_message = validate_mixmode_args(valid_cocktail)
     assert is_valid is True
 
 
@@ -32,7 +32,7 @@ def test_mit_fehlendem_schluessel_bei_zutat():
             }
         ],
     }
-    is_valid, error_message = validate_rezept(invalid_cocktail)
+    is_valid, error_message = validate_mixmode_args(invalid_cocktail)
     assert is_valid is False
     assert "fehlen erforderliche Schlüssel: {'name'}" in error_message
 
@@ -48,14 +48,14 @@ def test_mit_unerlaubtem_feld_bei_anweisung():
             }
         ],
     }
-    is_valid, error_message = validate_rezept(invalid_cocktail)
+    is_valid, error_message = validate_mixmode_args(invalid_cocktail)
     assert is_valid is False
     assert "enthält unerlaubte Felder: {'menge'}" in error_message
 
 
 def test_ohne_schritte_schluessel():
     rezept_ohne_schritte = {"name": "Wasser"}
-    is_valid, error_message = validate_rezept(rezept_ohne_schritte)
+    is_valid, error_message = validate_mixmode_args(rezept_ohne_schritte)
     assert is_valid is False
     # print(error_message)
     assert "schritte" in error_message
