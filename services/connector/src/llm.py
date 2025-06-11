@@ -1,7 +1,10 @@
+from pathlib import Path
 import json
 from openai import OpenAI
 from openai.types.responses import ResponseFunctionToolCall
 from typing import Literal, NamedTuple, List
+
+RESOURCES_DIR = Path(__file__).parent.parent / "resources"
 
 
 class Response(NamedTuple):
@@ -14,15 +17,19 @@ class LLM:
         self.client = OpenAI()
         self.model = model
 
-        with open("../resources/system_prompt.md", "r", encoding="utf-8") as f:
+        system_prompt_path = RESOURCES_DIR / "system_prompt.md"
+        tools_json_path = RESOURCES_DIR / "tools.json"
+
+        with open(system_prompt_path, "r", encoding="utf-8") as f:
             self.SYSTEM_PROMPT = f.read()
+
         system_message = {
             "role": "system",
             "content": self.SYSTEM_PROMPT,
         }
         self.history = [system_message]
 
-        with open("../resources/tools.json", "r", encoding="utf-8") as f:
+        with open(tools_json_path, "r", encoding="utf-8") as f:
             self.tools = json.load(f)
 
     def generate_response(

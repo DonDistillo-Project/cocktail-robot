@@ -15,4 +15,4 @@ ADD . /app
 WORKDIR /app
 RUN uv sync --locked
 
-CMD ["uv", "run", "main.py"]
+CMD ["uv", "run", "src/main.py"]
