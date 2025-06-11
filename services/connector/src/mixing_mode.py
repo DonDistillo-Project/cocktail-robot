@@ -1,14 +1,4 @@
-import json
 from typing import Any, Dict, List, Tuple
-from llm import LLM
-
-
-def start_mixing_mode(rezept: List[dict]) -> str:  # TODO:
-    info = "Der Nutzer brach das Rezept bei Schritt 2 ab."
-
-    print("Mixe mit Rezept " + str(rezept))
-
-    return info
 
 
 def validate_mixmode_args(llm_args: Dict[str, Any]) -> Tuple[bool, str]:
@@ -131,63 +121,19 @@ def validate_mixmode_args(llm_args: Dict[str, Any]) -> Tuple[bool, str]:
     return True, ""
 
 
-def handle_function_calls(llm, function_calls):
-    for call in function_calls:
-        func_name = call.name
-        args_str = call.arguments
+def handle_mixmode_call(args) -> Tuple[bool, str]:
+    is_valid, error_msg = validate_mixmode_args(args)
 
-        if func_name == "start_mixing_mode":
-            try:
-                args = json.loads(args_str)
-            except json.JSONDecodeError as e:
-                print(
-                    "Error: Could not parse arguments for function call (not a valid JSON document):\n"
-                    + args_str
-                )
-                llm.return_function_call(e.msg, call)
-                response = llm.generate_response()
-                print(response.text)
+    if not is_valid:
+        return False, error_msg
 
-                handle_function_calls(llm, response.function_calls)
-            else:
-                is_valid, error_msg = validate_mixmode_args(args)
-
-                if not is_valid:
-                    llm.return_function_call(error_msg, call)
-                    response = llm.generate_response()
-                    print(response.text)
-
-                    handle_function_calls(llm, response.function_calls)
-                else:
-                    mix_results = start_mixing_mode(args["rezept"])
-
-                    llm.return_function_call(mix_results, call)
-                    response = llm.generate_response()
-                    print(response.text)
-
-                    handle_function_calls(llm, response.function_calls)
+    mix_results = start_mixing_mode(args["rezept"])
+    return True, mix_results
 
 
-def main():
-    div = "------------------------"
-    print("Hello from connector!", flush=True)
-    print(div)
+def start_mixing_mode(rezept: List[dict]) -> str:
+    info = ""  # Beispiel: "User brach wegen fehlender Zutat bei Schritt 2 ab."
 
-    llm = LLM()
-    welcome = llm.generate_response()
-    print(welcome.text)
-    print(div)
+    print("Mixmodus gestartet mit Rezept:\n" + str(rezept))
 
-    while True:
-        user_input = input("You: ")
-        print(div)
-
-        response = llm.generate_response(user_input)
-        print(response.text)
-        print(div)
-
-        handle_function_calls(llm, response.function_calls)
-
-
-if __name__ == "__main__":
-    main()
+    return info
