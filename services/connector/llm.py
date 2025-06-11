@@ -86,41 +86,72 @@ Du bist "Don Destillo", ein freundlicher, weltgewandter und sachkundiger Cocktai
                             "type": "object",
                             "description": "Das vollständige Rezeptobjekt für die Zubereitung.",
                             "properties": {
-                                "name": {"type": "string", "description": "Name des Cocktails."},
-                                "schritte": {
-                                    "type": "array",
-                                    "description": "Array aller Zubereitungsschritte. Jeder Schritt ist ein Objekt, dessen Struktur durch das 'typ'-Feld bestimmt wird.",
-                                    "items": {
-                                        "type": "object",
-                                        "title": "Schritt",
-                                        "description": "Ein Zubereitungsschritt. 'typ' bestimmt, ob es eine 'zutat' (dann sind 'name', 'menge', 'einheit' relevant) oder eine 'anweisung' ist. 'beschreibung' ist immer erforderlich.",
-                                        "properties": {
-                                            "typ": {
-                                                "type": "string",
-                                                "enum": ["zutat", "anweisung"],
-                                                "description": "Typ des Schritts: 'zutat' für Zutatengabe, 'anweisung' für andere Aktionen.",
-                                            },
-                                            "beschreibung": {
-                                                "type": "string",
-                                                "description": "Benutzerfreundliche Textanweisung für diesen Schritt (z.B. '4 cl weißen Rum hinzufügen' oder 'Kräftig schütteln'). Zwingend erforderlich.",
-                                            },
-                                            "name": {
-                                                "type": "string",
-                                                "description": "Name der Zutat. Erforderlich und nur relevant, wenn typ='zutat' (z.B. 'Weißer Rum').",
-                                            },
-                                            "menge": {
-                                                "type": ["number", "null"],
-                                                "description": "Numerische Menge. Nur relevant, wenn typ='zutat'. Null, wenn für diese Zutat nicht anwendbar.",
-                                            },
-                                            "einheit": {
-                                                "type": ["string", "null"],
-                                                "description": "Einheit der Menge. Nur relevant, wenn typ='zutat' (z.B. 'cl', 'Stück'). Null, wenn für diese Zutat nicht anwendbar.",
-                                            },
+                                "type": "object",
+                                "properties": {
+                                    "name": {
+                                        "type": "string",
+                                        "description": "Name des Cocktails.",
+                                    },
+                                    "schritte": {
+                                        "type": "array",
+                                        "description": "Array aller Zubereitungsschritte.",
+                                        "items": {
+                                            "oneOf": [
+                                                {
+                                                    "title": "Zutat-Schritt",
+                                                    "type": "object",
+                                                    "properties": {
+                                                        "typ": {
+                                                            "const": "zutat",
+                                                            "description": "Typ des Schritts muss 'zutat' sein.",
+                                                        },
+                                                        "beschreibung": {
+                                                            "type": "string",
+                                                            "description": "Benutzerfreundliche Anweisung, z.B. '4 cl weißen Rum hinzufügen'.",
+                                                        },
+                                                        "name": {
+                                                            "type": "string",
+                                                            "description": "Name der Zutat, z.B. 'Weißer Rum'.",
+                                                        },
+                                                        "menge": {
+                                                            "type": ["number", "null"],
+                                                            "description": "Numerische Menge. Null, wenn nicht anwendbar.",
+                                                        },
+                                                        "einheit": {
+                                                            "type": ["string", "null"],
+                                                            "description": "Einheit der Menge, z.B. 'cl'. Null, wenn nicht anwendbar.",
+                                                        },
+                                                    },
+                                                    "required": [
+                                                        "typ",
+                                                        "beschreibung",
+                                                        "name",
+                                                        "menge",
+                                                        "einheit",
+                                                    ],
+                                                    "additionalProperties": False,
+                                                },
+                                                {
+                                                    "title": "Anweisung-Schritt",
+                                                    "type": "object",
+                                                    "properties": {
+                                                        "typ": {
+                                                            "const": "anweisung",
+                                                            "description": "Typ des Schritts muss 'anweisung' sein.",
+                                                        },
+                                                        "beschreibung": {
+                                                            "type": "string",
+                                                            "description": "Benutzerfreundliche Anweisung, z.B. 'Kräftig schütteln'.",
+                                                        },
+                                                    },
+                                                    "required": ["typ", "beschreibung"],
+                                                    "additionalProperties": False,
+                                                },
+                                            ]
                                         },
-                                        "required": ["typ", "beschreibung"],
-                                        "additionalProperties": False,
                                     },
                                 },
+                                "required": ["name", "schritte"],
                             },
                             "required": ["name", "schritte"],
                             "additionalProperties": False,
