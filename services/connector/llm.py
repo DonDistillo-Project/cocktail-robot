@@ -95,72 +95,68 @@ Phase 1: Rezeptfindung & Vorschlag (Reine Text-Interaktion)
                             "type": "object",
                             "description": "Das vollständige Rezeptobjekt für die Zubereitung.",
                             "properties": {
-                                "type": "object",
-                                "properties": {
-                                    "name": {
-                                        "type": "string",
-                                        "description": "Name des Cocktails.",
-                                    },
-                                    "schritte": {
-                                        "type": "array",
-                                        "description": "Array aller Zubereitungsschritte.",
-                                        "items": {
-                                            "oneOf": [
-                                                {
-                                                    "title": "Zutat-Schritt",
-                                                    "type": "object",
-                                                    "properties": {
-                                                        "typ": {
-                                                            "const": "zutat",
-                                                            "description": "Typ des Schritts muss 'zutat' sein.",
-                                                        },
-                                                        "beschreibung": {
-                                                            "type": "string",
-                                                            "description": "Benutzerfreundliche Anweisung, z.B. '4 cl weißen Rum hinzufügen'.",
-                                                        },
-                                                        "name": {
-                                                            "type": "string",
-                                                            "description": "Name der Zutat, z.B. 'Weißer Rum'.",
-                                                        },
-                                                        "menge": {
-                                                            "type": ["number", "null"],
-                                                            "description": "Numerische Menge. Null, wenn nicht anwendbar.",
-                                                        },
-                                                        "einheit": {
-                                                            "type": ["string", "null"],
-                                                            "description": "Einheit der Menge, z.B. 'cl'. Null, wenn nicht anwendbar.",
-                                                        },
+                                "name": {
+                                    "type": "string",
+                                    "description": "Name des Cocktails.",
+                                },
+                                "schritte": {
+                                    "type": "array",
+                                    "description": "Array aller Zubereitungsschritte.",
+                                    "items": {
+                                        "oneOf": [
+                                            {
+                                                "title": "Zutat-Schritt",
+                                                "type": "object",
+                                                "properties": {
+                                                    "typ": {
+                                                        "const": "zutat",
+                                                        "description": "Typ des Schritts muss 'zutat' sein.",
                                                     },
-                                                    "required": [
-                                                        "typ",
-                                                        "beschreibung",
-                                                        "name",
-                                                        "menge",
-                                                        "einheit",
-                                                    ],
-                                                    "additionalProperties": False,
-                                                },
-                                                {
-                                                    "title": "Anweisung-Schritt",
-                                                    "type": "object",
-                                                    "properties": {
-                                                        "typ": {
-                                                            "const": "anweisung",
-                                                            "description": "Typ des Schritts muss 'anweisung' sein.",
-                                                        },
-                                                        "beschreibung": {
-                                                            "type": "string",
-                                                            "description": "Benutzerfreundliche Anweisung, z.B. 'Kräftig schütteln'.",
-                                                        },
+                                                    "beschreibung": {
+                                                        "type": "string",
+                                                        "description": "Benutzerfreundliche Anweisung, z.B. '4 cl weißen Rum hinzufügen'.",
                                                     },
-                                                    "required": ["typ", "beschreibung"],
-                                                    "additionalProperties": False,
+                                                    "name": {
+                                                        "type": "string",
+                                                        "description": "Name der Zutat, z.B. 'Weißer Rum'.",
+                                                    },
+                                                    "menge": {
+                                                        "type": ["number", "null"],
+                                                        "description": "Numerische Menge. Null, wenn nicht anwendbar.",
+                                                    },
+                                                    "einheit": {
+                                                        "type": ["string", "null"],
+                                                        "description": "Einheit der Menge, z.B. 'cl'. Null, wenn nicht anwendbar.",
+                                                    },
                                                 },
-                                            ]
-                                        },
+                                                "required": [
+                                                    "typ",
+                                                    "beschreibung",
+                                                    "name",
+                                                    "menge",
+                                                    "einheit",
+                                                ],
+                                                "additionalProperties": False,
+                                            },
+                                            {
+                                                "title": "Anweisung-Schritt",
+                                                "type": "object",
+                                                "properties": {
+                                                    "typ": {
+                                                        "const": "anweisung",
+                                                        "description": "Typ des Schritts muss 'anweisung' sein.",
+                                                    },
+                                                    "beschreibung": {
+                                                        "type": "string",
+                                                        "description": "Benutzerfreundliche Anweisung, z.B. 'Kräftig schütteln'.",
+                                                    },
+                                                },
+                                                "required": ["typ", "beschreibung"],
+                                                "additionalProperties": False,
+                                            },
+                                        ]
                                     },
                                 },
-                                "required": ["name", "schritte"],
                             },
                             "required": ["name", "schritte"],
                             "additionalProperties": False,
