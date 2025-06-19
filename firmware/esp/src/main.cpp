@@ -67,9 +67,8 @@ void loop()
 
     while (1)
     {
-
-        Serial.println("READING MIC");
-        bytes_left = readMic((int16_t*) buf ,sizeof(buf));
+        //Serial.println("READING MIC");
+        //bytes_left = readMic((int16_t*) buf ,sizeof(buf));
         i2s_read(MIC_I2S_NUM, &buf, sizeof(buf), &bytes_left, portMAX_DELAY);
 
         // Serial.printf("READ %d BYTES ",bytes_left);
@@ -84,9 +83,9 @@ void loop()
 
         bytes_left = read(client_socket, speaker_buf, sizeof(speaker_buf));
 
-        // while (bytes_left % 2 != 0)
-        //     bytes_left += read(client_socket, ((int8_t *)speaker_buf) + bytes_left, 1);
-        //Serial.printf("outside loop \n");
+        while (bytes_left % 2 != 0)
+            bytes_left += read(client_socket, ((int8_t *)speaker_buf) + bytes_left, 1);
+        Serial.printf("outside loop \n");
         offset = 0;
         while (bytes_left > 0)
         {   

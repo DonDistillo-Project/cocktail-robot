@@ -39,7 +39,7 @@ void SetupMic()
 size_t readMic(int16_t *buf = mic_buffer, size_t buf_size = sizeof(mic_buffer))
 {
     size_t bytes_read;
-    i2s_read(MIC_I2S_NUM, mic_buffer, sizeof(mic_buffer), &bytes_read, portMAX_DELAY);
+    i2s_read(MIC_I2S_NUM, &buf, buf_size, &bytes_read, portMAX_DELAY);
     return bytes_read;
 }
 
