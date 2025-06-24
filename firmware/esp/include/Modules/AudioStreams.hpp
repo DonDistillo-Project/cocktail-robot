@@ -5,8 +5,6 @@
 #include "ModuleSettings.hpp"
 
 #include "Modules/WiFi.hpp"
-#include "Modules/Mic.hpp"
-#include "Modules/Speaker.hpp"
 
 #include "freertos/semphr.h"
 #include "lwip/sockets.h"
@@ -14,9 +12,49 @@
 static int audio_sock;
 static bool audio_connected = false;
 
-TaskHandle_t sock2speakerTask = NULL;
+#ifdef SETUP_MIC
 TaskHandle_t mic2sockTask = NULL;
 
+void mic2sock(void *client_socketf)
+{
+#ifdef SETUP_SERIAL
+    Serial.printf("started read task \n");
+#endif
+
+    size_t bytes_left = 0;
+    ssize_t bytes_written = 0;
+
+    int16_t buf[MIC_DMA_BUF_LEN];
+
+    size_t offset = 0;
+
+    int client_socket = *((int *)(client_socketf));
+
+    while (audio_connected)
+    {
+        int ret = i2s_read(MIC_I2S_NUM, &buf, sizeof(buf), &bytes_left, portMAX_DELAY);
+        printf("READ %u BYTES FROM MIC, %d\n", bytes_left, ret);
+        offset = 0;
+        while (bytes_left > 0)
+        {
+            bytes_written = write(client_socket, ((int8_t *)buf) + offset, bytes_left);
+            printf("WROTE %i BYTES of %d\n", bytes_written, bytes_left);
+            if (bytes_written <= 0)
+            {
+                audio_connected = false;
+                printf("SENT 0 BYTES\n");
+
+                return;
+            }
+            bytes_left -= bytes_written;
+            offset += bytes_written;
+        }
+    }
+}
+#endif
+
+#ifdef SETUP_SPEAKER
+TaskHandle_t sock2speakerTask = NULL;
 void sock2speaker(void *client_socketp)
 {
 #ifdef SETUP_SERIAL
@@ -58,42 +96,7 @@ void sock2speaker(void *client_socketp)
         }
     }
 }
-
-void mic2sock(void *client_socketf)
-{
-#ifdef SETUP_SERIAL
-    Serial.printf("started read task \n");
 #endif
-
-    size_t bytes_left = 0;
-    size_t bytes_written = 0;
-
-    int16_t buf[MIC_DMA_BUF_LEN];
-
-    size_t offset = 0;
-
-    int client_socket = *((int *)(client_socketf));
-
-    while (audio_connected)
-    {
-        i2s_read(MIC_I2S_NUM, &buf, sizeof(buf), &bytes_left, portMAX_DELAY);
-
-        offset = 0;
-        while (bytes_left > 0)
-        {
-            bytes_written = write(client_socket, ((int8_t *)buf) + offset, bytes_left);
-            if (bytes_written == 0)
-            {
-                audio_connected = false;
-                printf("RECEIVED 0 BYTES\n");
-
-                return;
-            }
-            bytes_left -= bytes_written;
-            offset += bytes_written;
-        }
-    }
-}
 
 int audioStreamAccept()
 {
@@ -110,6 +113,7 @@ int audioStreamAccept()
 
     audio_connected = true;
 
+#ifdef SETUP_SPEAKER
     xTaskCreate(
         sock2speaker,
         "Sock2SpeakerTask",
@@ -117,7 +121,9 @@ int audioStreamAccept()
         &client_socket,
         STREAMS_SPEAKER_PRIO,
         &sock2speakerTask);
+#endif
 
+#ifdef SETUP_MIC
     xTaskCreate(
         mic2sock,
         "Mic2SockTask",
@@ -125,6 +131,7 @@ int audioStreamAccept()
         &client_socket,
         STREAMS_MIC_PRIO,
         &mic2sockTask);
+#endif
     return 0;
 }
 

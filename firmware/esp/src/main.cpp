@@ -8,6 +8,6 @@ void loop()
     while (true)
     {
         Serial.println("Running\n");
-        sleep(10);
+        sleep(1);
     }
 }
