@@ -1,0 +1,7 @@
+logs/
+.venv
+.ruff_cache
+**/__pycache__/
+ffmpeg*
+*.wav
+*.log
