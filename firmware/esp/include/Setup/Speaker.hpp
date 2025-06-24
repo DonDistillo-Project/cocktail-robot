@@ -7,7 +7,7 @@
 
 #include <driver/i2s.h>
 
-int32_t speaker_buffer[64];
+int16_t speaker_buffer[SPEAKER_DMA_BUF_LEN];
 
 void SetupSpeaker()
 {
@@ -15,11 +15,11 @@ void SetupSpeaker()
         .mode = (i2s_mode_t)(I2S_MODE_MASTER | I2S_MODE_TX),
         .sample_rate = SPEAKER_SR,
         .bits_per_sample = I2S_BITS_PER_SAMPLE_16BIT,
-        .channel_format = I2S_CHANNEL_FMT_RIGHT_LEFT,
+        .channel_format = I2S_CHANNEL_FMT_ONLY_LEFT,
         .communication_format = (i2s_comm_format_t)(I2S_COMM_FORMAT_STAND_I2S),
         .intr_alloc_flags = ESP_INTR_FLAG_LEVEL1,
-        .dma_buf_count = 4,
-        .dma_buf_len = 1024};
+        .dma_buf_count = SPEAKER_DMA_BUF_COUNT,
+        .dma_buf_len = SPEAKER_DMA_BUF_LEN};
 
     i2s_pin_config_t pin_config = {
         .bck_io_num = GPIO_NUM_13,
@@ -32,7 +32,7 @@ void SetupSpeaker()
     i2s_zero_dma_buffer(SPEAKER_I2S_NUM);
 }
 
-size_t writeSpeaker(int32_t *buf = speaker_buffer, size_t buf_size = sizeof(speaker_buffer))
+size_t writeSpeaker(int16_t *buf = speaker_buffer, size_t buf_size = sizeof(speaker_buffer))
 {
     size_t bytes_written;
     i2s_write(SPEAKER_I2S_NUM, &buf, buf_size, &bytes_written, portMAX_DELAY);
