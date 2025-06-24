@@ -1,9 +1,5 @@
 #pragma once
 
-#include <Arduino.h>
-#include <exception>
-#include <WString.h>
-
 #define FS_REFORMAT_ON_FAIL true
 
 #define WIFI_FS_DIR "/wifi/"
@@ -15,11 +11,12 @@
 #define SERIAL_BAUD 9600
 #define SERIAL_TIMEOUT 10000
 
-#define SCALE_CLK_PIN 32
-#define SCALE_DAT_PIN 33
+#define SCALE_CLK_PIN GPIO_NUM_4
+#define SCALE_DAT_PIN GPIO_NUM_5
 #define SCALE_LIN_FAC 0.00253508
-#define SCALE_START_OFFSET 8506971.577783272
+#define SCALE_START_OFFSET 8507165.45
 
+#define MIC_I2S_NUM I2S_NUM_0
 #define MIC_I2S_SCK GPIO_NUM_26
 #define MIC_I2S_WS GPIO_NUM_25
 #define MIC_I2S_SD GPIO_NUM_22
@@ -27,6 +24,7 @@
 #define MIC_DMA_BUF_COUNT 8
 #define MIC_DMA_BUF_LEN 64
 
+#define SPEAKER_I2S_NUM I2S_NUM_1
 #define SPEAKER_I2S_SCK GPIO_NUM_13
 #define SPEAKER_I2S_WS GPIO_NUM_15
 #define SPEAKER_I2S_SD GPIO_NUM_8
@@ -34,16 +32,9 @@
 #define SPEAKER_DMA_BUF_COUNT 8
 #define SPEAKER_DMA_BUF_LEN 64
 
-class SetupError : public std::exception
-{
-protected:
-    String mMessage;
-
-public:
-    SetupError(const char *msg) : mMessage(String(msg)) {}
-
-    const char *what() const throw()
-    {
-        return mMessage.c_str();
-    }
-};
+#define STREAMS_ADDR INADDR_ANY
+#define STREAMS_PORT 1234
+#define STREAMS_BACKLOG 2
+#define STREAMS_STACKSIZE 1024 * 16
+#define STREAMS_SPEAKER_PRIO 1
+#define STREAMS_MIC_PRIO 2

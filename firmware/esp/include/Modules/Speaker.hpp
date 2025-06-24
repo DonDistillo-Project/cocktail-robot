@@ -1,16 +1,15 @@
-#ifndef SETUP_SPEAKER
+#pragma once
 #define SETUP_SPEAKER
 
-#define SPEAKER_I2S_NUM I2S_NUM_1
-
-#include "Setup.hpp"
+#include "ModuleSettings.hpp"
 
 #include <driver/i2s.h>
 
 int16_t speaker_buffer[SPEAKER_DMA_BUF_LEN];
 
-void SetupSpeaker()
+int SetupSpeaker()
 {
+    int ret;
     i2s_config_t i2s_config = {
         .mode = (i2s_mode_t)(I2S_MODE_MASTER | I2S_MODE_TX),
         .sample_rate = SPEAKER_SR,
@@ -27,9 +26,20 @@ void SetupSpeaker()
         .data_out_num = GPIO_NUM_8,
         .data_in_num = -1};
 
-    i2s_driver_install(SPEAKER_I2S_NUM, &i2s_config, 0, NULL);
-    i2s_set_pin(SPEAKER_I2S_NUM, &pin_config);
-    i2s_zero_dma_buffer(SPEAKER_I2S_NUM);
+    if ((ret = i2s_driver_install(SPEAKER_I2S_NUM, &i2s_config, 0, NULL)) != ESP_OK)
+    {
+        return ret;
+    }
+    if ((ret = i2s_set_pin(SPEAKER_I2S_NUM, &pin_config)) != ESP_OK)
+    {
+        return ret;
+    }
+    if ((ret = i2s_zero_dma_buffer(SPEAKER_I2S_NUM)) != ESP_OK)
+    {
+        return ret;
+    };
+
+    return 0;
 }
 
 size_t writeSpeaker(int16_t *buf = speaker_buffer, size_t buf_size = sizeof(speaker_buffer))
@@ -38,5 +48,3 @@ size_t writeSpeaker(int16_t *buf = speaker_buffer, size_t buf_size = sizeof(spea
     i2s_write(SPEAKER_I2S_NUM, &buf, buf_size, &bytes_written, portMAX_DELAY);
     return bytes_written;
 }
-
-#endif

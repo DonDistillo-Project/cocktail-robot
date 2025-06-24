@@ -1,16 +1,15 @@
-#ifndef SETUP_MIC
+#pragma once
 #define SETUP_MIC
 
-#define MIC_I2S_NUM I2S_NUM_0
-
-#include "Setup.hpp"
+#include "ModuleSettings.hpp"
 
 #include <driver/i2s.h>
 
 int16_t mic_buffer[MIC_DMA_BUF_LEN];
 
-void SetupMic()
+int SetupMic()
 {
+    int ret;
     i2s_config_t i2s_config = {
         .mode = (i2s_mode_t)(I2S_MODE_MASTER | I2S_MODE_RX),
         .sample_rate = MIC_SR,
@@ -32,8 +31,17 @@ void SetupMic()
         .data_in_num = MIC_I2S_SD,
     };
 
-    i2s_driver_install(MIC_I2S_NUM, &i2s_config, 0, NULL);
-    i2s_set_pin(MIC_I2S_NUM, &pin_config);
+    if ((ret = i2s_driver_install(MIC_I2S_NUM, &i2s_config, 0, NULL)) != ESP_OK)
+    {
+        return ret;
+    }
+
+    if ((ret = i2s_set_pin(MIC_I2S_NUM, &pin_config)) != ESP_OK)
+    {
+        return ret;
+    }
+
+    return 0;
 }
 
 size_t readMic(int16_t *buf = mic_buffer, size_t buf_size = sizeof(mic_buffer))
@@ -42,5 +50,3 @@ size_t readMic(int16_t *buf = mic_buffer, size_t buf_size = sizeof(mic_buffer))
     i2s_read(MIC_I2S_NUM, &buf, buf_size, &bytes_read, portMAX_DELAY);
     return bytes_read;
 }
-
-#endif

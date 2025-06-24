@@ -1,11 +1,11 @@
-#ifndef SETUP_I2C
+#pragma once
 #define SETUP_I2C
 
-#include "Setup/Setup.hpp"
+#include "ModuleSettings.hpp"
 
 #include <Wire.h>
 
-void setupI2C()
+int setupI2C()
 {
     Wire.begin(21, 22);
 
@@ -46,5 +46,3 @@ void setupI2C()
     Serial.println("Scan complete");
 #endif
 }
-
-#endif

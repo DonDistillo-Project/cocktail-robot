@@ -1,9 +1,26 @@
-#ifndef SETUP_WIFI
+#pragma once
 #define SETUP_WIFI
 
-#include "Setup.hpp"
+#include "ModuleSettings.hpp"
 
 #include <WiFi.h>
+
+#include <exception>
+#include <WString.h>
+
+class SetupError : public std::exception
+{
+protected:
+    String mMessage;
+
+public:
+    SetupError(const char *msg) : mMessage(String(msg)) {}
+
+    const char *what() const throw()
+    {
+        return mMessage.c_str();
+    }
+};
 
 String explainWiFiStatusCode(wl_status_t status)
 {
@@ -27,7 +44,7 @@ String explainWiFiStatusCode(wl_status_t status)
     }
 }
 
-void setupWifi(String ssid, String pass)
+int setupWifi(String ssid, String pass)
 {
 #ifdef SETUP_SERIAL
     Serial.printf("\tSSID: \"%s\", PASS: \"%s\".\n", ssid.c_str(), pass.c_str());
@@ -69,7 +86,12 @@ void setupWifi(String ssid, String pass)
     }
 #ifdef SETUP_SERIAL
     Serial.println("\tWiFi Connection successful");
+
+    Serial.print("Connect to IP Address: ");
+    Serial.print("http://");
+    Serial.println(WiFi.localIP());
 #endif
+    return 0;
 }
 
 #ifdef SETUP_SERIAL
@@ -170,7 +192,7 @@ void connectWiFiSerialManual(String &ssid, String &pass)
     setupWifi(ssid, pass);
 }
 
-void setupWiFiSerial()
+int setupWiFiSerial()
 {
     String ssid, pass;
     Serial.println("Starting WiFi setup over Serial:");
@@ -255,19 +277,19 @@ void setupWiFiSerial()
         pass_file.close();
 
         Serial.println("Successfully wrote WiFi login details.");
-        return;
+        return 0;
     }
     else
     {
         Serial.println("Not writing WiFi login details.");
-        return;
+        return 0;
     }
 #endif
 }
 #endif // SETUP_SERIAL
 
 #ifdef SETUP_FS
-void setupWiFiFS()
+int setupWiFiFS()
 {
     String ssid, pass;
 
@@ -287,24 +309,23 @@ void setupWiFiFS()
     pass = pass_file.readString();
     pass_file.close();
 
-    setupWifi(ssid, pass);
+    return setupWifi(ssid, pass);
 }
 #endif // SETUP_FS
 
 #if defined SETUP_FS && defined SETUP_SERIAL
-void setupWifi()
+int setupWifi()
 {
     try
     {
-        setupWiFiFS();
-        return;
+        return setupWiFiFS();
     }
     catch (SetupError e)
     {
         Serial.print("Error while trying to setup WiFi via flash storage: ");
         Serial.print(e.what());
         Serial.println("\nTrying fallback Serial WiFi setup");
-        setupWiFiSerial();
+        return setupWiFiSerial();
     }
 };
 
@@ -318,5 +339,4 @@ void setupWifi()
 {
     setupWiFiSerial();
 }
-#endif
 #endif

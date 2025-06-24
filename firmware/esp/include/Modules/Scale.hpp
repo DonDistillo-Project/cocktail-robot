@@ -1,6 +1,9 @@
-#ifndef SETUP_SCALE
+#pragma once
 #define SETUP_SCALE
-#include "Setup.hpp"
+
+#include "ModuleSettings.hpp"
+
+#include "Arduino.h"
 
 double scale_linear_factor = SCALE_LIN_FAC;
 double scale_offset = SCALE_START_OFFSET;
@@ -49,9 +52,10 @@ double getScaleWeight()
     return scale_linear_factor * (readScaleRaw() - scale_offset);
 }
 
-void setupScale()
+int setupScale()
 {
     pinMode(SCALE_CLK_PIN, OUTPUT);
     pinMode(SCALE_DAT_PIN, INPUT);
+
+    return 0;
 }
-#endif
