@@ -21,9 +21,9 @@ int SetupSpeaker()
         .dma_buf_len = SPEAKER_DMA_BUF_LEN};
 
     i2s_pin_config_t pin_config = {
-        .bck_io_num = GPIO_NUM_13,
-        .ws_io_num = GPIO_NUM_15,
-        .data_out_num = GPIO_NUM_8,
+        .bck_io_num = SPEAKER_I2S_SCK,
+        .ws_io_num = SPEAKER_I2S_WS,
+        .data_out_num = SPEAKER_I2S_SD,
         .data_in_num = -1};
 
     if ((ret = i2s_driver_install(SPEAKER_I2S_NUM, &i2s_config, 0, NULL)) != ESP_OK)

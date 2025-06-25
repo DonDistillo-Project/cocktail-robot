@@ -10,16 +10,55 @@
 #include "lwip/sockets.h"
 
 static int audio_sock;
-static bool audio_connected = false;
 
-#ifdef SETUP_MIC
-TaskHandle_t mic2sockTask = NULL;
+TaskHandle_t write_handle = NULL;
+TaskHandle_t read_handle = NULL;
+TaskHandle_t main_task = NULL;
+
+void sock2speaker(void *client_socketp)
+{
+    Serial.printf("started write task \n");
+
+    Serial.flush(); // ACHTUNG: LOAD BEARING FLUSH ???
+
+    ssize_t bytes_left = 0;
+    size_t bytes_written = 0;
+
+    int16_t speaker_buf[SPEAKER_DMA_BUF_LEN];
+
+    size_t offset = 0;
+
+    int client_socket = *((int *)(client_socketp));
+
+    while (1)
+    {
+        bytes_left = read(client_socket, speaker_buf, sizeof(speaker_buf));
+        if (bytes_left <= 0)
+        {
+            printf("Read failed: %i - Connection closed \n", bytes_left);
+            i2s_zero_dma_buffer(SPEAKER_I2S_NUM);
+            xTaskNotifyGive(main_task);
+
+            vTaskDelete(xTaskGetCurrentTaskHandle());
+
+            return;
+        }
+        while (bytes_left % 2 != 0)
+            bytes_left += read(client_socket, ((int8_t *)speaker_buf) + bytes_left, 1);
+        offset = 0;
+        while (bytes_left > 0)
+        {
+            i2s_write(SPEAKER_I2S_NUM, ((int8_t *)speaker_buf) + offset, bytes_left, &bytes_written, portMAX_DELAY);
+            bytes_left -= bytes_written;
+            offset += bytes_written;
+        }
+    }
+}
 
 void mic2sock(void *client_socketf)
 {
-#ifdef SETUP_SERIAL
     Serial.printf("started read task \n");
-#endif
+    Serial.flush();
 
     size_t bytes_left = 0;
     ssize_t bytes_written = 0;
@@ -30,19 +69,21 @@ void mic2sock(void *client_socketf)
 
     int client_socket = *((int *)(client_socketf));
 
-    while (audio_connected)
+    while (1)
     {
-        int ret = i2s_read(MIC_I2S_NUM, &buf, sizeof(buf), &bytes_left, portMAX_DELAY);
-        printf("READ %u BYTES FROM MIC, %d\n", bytes_left, ret);
-        offset = 0;
+        i2s_read(MIC_I2S_NUM, &buf, sizeof(buf), &bytes_left, portMAX_DELAY);
+
+        size_t offset = 0;
         while (bytes_left > 0)
         {
             bytes_written = write(client_socket, ((int8_t *)buf) + offset, bytes_left);
-            printf("WROTE %i BYTES of %d\n", bytes_written, bytes_left);
             if (bytes_written <= 0)
             {
-                audio_connected = false;
-                printf("SENT 0 BYTES\n");
+                printf("Write failed: %i - Connection closed \n", bytes_written);
+                i2s_zero_dma_buffer(SPEAKER_I2S_NUM);
+                xTaskNotifyGive(main_task);
+
+                vTaskDelete(xTaskGetCurrentTaskHandle());
 
                 return;
             }
@@ -51,55 +92,10 @@ void mic2sock(void *client_socketf)
         }
     }
 }
-#endif
-
-#ifdef SETUP_SPEAKER
-TaskHandle_t sock2speakerTask = NULL;
-void sock2speaker(void *client_socketp)
-{
-#ifdef SETUP_SERIAL
-    Serial.printf("started write task \n");
-#endif
-
-#ifdef SETUP_SERIAL
-    Serial.flush();
-#endif
-    size_t bytes_left = 0;
-    size_t bytes_written = 0;
-
-    int16_t speaker_buf[SPEAKER_DMA_BUF_LEN];
-
-    size_t offset = 0;
-
-    int client_socket = *((int *)(client_socketp));
-    i2s_zero_dma_buffer(SPEAKER_I2S_NUM);
-    while (audio_connected)
-    {
-        bytes_left = read(client_socket, speaker_buf, sizeof(speaker_buf));
-
-        while (bytes_left % 2 != 0)
-            bytes_left += read(client_socket, ((int8_t *)speaker_buf) + bytes_left, 1);
-
-        if (bytes_left == 0)
-        {
-            audio_connected = false;
-            printf("RECEIVED 0 BYTES\n");
-            return;
-        }
-
-        offset = 0;
-        while (bytes_left > 0)
-        {
-            i2s_write(SPEAKER_I2S_NUM, ((int8_t *)speaker_buf) + offset, bytes_left, &bytes_written, portMAX_DELAY);
-            bytes_left -= bytes_written;
-            offset += bytes_written;
-        }
-    }
-}
-#endif
 
 int audioStreamAccept()
 {
+
     sockaddr client_addr;
     size_t client_addr_len;
     int client_socket;
@@ -111,27 +107,33 @@ int audioStreamAccept()
     }
     printf("connected\n");
 
-    audio_connected = true;
-
-#ifdef SETUP_SPEAKER
     xTaskCreate(
         sock2speaker,
-        "Sock2SpeakerTask",
+        "sock2speaker",
         STREAMS_STACKSIZE,
-        &client_socket,
+        (void *)(&client_socket),
         STREAMS_SPEAKER_PRIO,
-        &sock2speakerTask);
-#endif
+        &write_handle);
 
-#ifdef SETUP_MIC
     xTaskCreate(
         mic2sock,
-        "Mic2SockTask",
+        "mic2sock",
         STREAMS_STACKSIZE,
         &client_socket,
         STREAMS_MIC_PRIO,
-        &mic2sockTask);
-#endif
+        &read_handle);
+
+    main_task = xTaskGetCurrentTaskHandle();
+
+    return 0;
+}
+
+int audioStreamWait()
+{
+    printf("Waiting for Tasks to finish\n");
+    ulTaskNotifyTake(pdTRUE, portMAX_DELAY);
+
+    printf("Tasks finished\n");
     return 0;
 }
 
@@ -145,6 +147,5 @@ int SetupAudioStreams()
 
     bind(audio_sock, (struct sockaddr *)&addr, sizeof(addr));
     listen(audio_sock, STREAMS_BACKLOG);
-
     return 0;
 };
