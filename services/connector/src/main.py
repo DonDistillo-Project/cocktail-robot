@@ -2,7 +2,7 @@ import json
 from typing import Tuple
 from openai.types.responses import ResponseFunctionToolCall
 from llm import LLM
-from mixing_mode import handle_mixing_mode_call
+from src.mixmode import handle_mixing_mode_call
 
 MAX_FUNCTION_CALL_RETRY_ATTEMPTS = 3
 
