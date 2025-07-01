@@ -1,7 +1,7 @@
 import asyncio
 import logging
 
-from lib.StreamNodes import BroadcastStream, Gain
+from src.streamnode import BroadcastStream, Gain
 
 ESP_HOST = "ESP32"
 ESP_ADDR = "192.168.71.16"
