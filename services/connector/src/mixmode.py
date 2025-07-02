@@ -1,5 +1,8 @@
 from typing import Any, Dict, List, Tuple, Literal, Optional, Union
 from pydantic import BaseModel, Field, ConfigDict, ValidationError
+import asyncio
+
+from streamnode import BroadcastStream
 
 
 class InstructionStep(BaseModel):
@@ -72,7 +75,6 @@ def handle_mixing_mode_call(args: Dict[str, Any]) -> Tuple[bool, str]:
     mixing_results = start_mixing_mode(recipe)
     return True, mixing_results
 
-
 def start_mixing_mode(recipe: Recipe) -> str:
     """
     Args:
@@ -81,9 +83,18 @@ def start_mixing_mode(recipe: Recipe) -> str:
     Returns:
         A summary of the mixing process.
     """
+
     # Example: "User aborted at step 2 due to a missing ingredient."
     summary_of_mixing_process = ""
 
-    print("Mixing mode started with recipe:\n" + str(recipe))
+    print("Mixing mode started with recipe:\n" + recipe.name)
+
+
+
+    for schritt in recipe.schritte:
+        if isinstance(schritt, InstructionStep):
+            tts_stream.write()
+
+
 
     return summary_of_mixing_process
