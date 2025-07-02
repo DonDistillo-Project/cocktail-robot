@@ -227,4 +227,8 @@ pyrightconfig.json
 .history
 .ionide
 
+### PyCharm ###
+#ignore ide stuff
+.idea/
+
 # End of https://www.toptal.com/developers/gitignore/api/python,visualstudiocode,macos
