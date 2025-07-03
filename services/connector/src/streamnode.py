@@ -9,7 +9,7 @@ DEFAULT_BUF_SIZE = 128
 logger = logging.getLogger(__name__)
 
 
-class Node[In, Out](ABC):
+class Node[In, Out]:
     outgoing_nodes: set["Node[Out, Any]"]
 
     name: str
@@ -24,7 +24,7 @@ class Node[In, Out](ABC):
     def _log(
         self,
         message: str,
-        level: int = logging.CRITICAL,
+        level: int = logging.DEBUG,
         log_format="N:{self.name}: {message}",
     ) -> None:
         logger.log(level, log_format.format_map(locals()))
@@ -41,7 +41,6 @@ class Node[In, Out](ABC):
             self._log(f"Running callback for node {node}")
             node.input(data, self)
 
-    @abstractmethod
     def handle_input(self, data: In) -> None: ...
 
 
