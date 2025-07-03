@@ -1,37 +1,63 @@
 import asyncio
 import logging
 from typing import Any, Callable
-
+from abc import ABC, abstractmethod
 import numpy as np
 
 DEFAULT_BUF_SIZE = 128
 
 logger = logging.getLogger(__name__)
 
-type BroadcastCallback = Callable[[bytes], Any]
 
+class Node[In, Out](ABC):
+    outgoing_nodes: set["Node[Out, Any]"]
 
-class Node:
-    callbacks: set[BroadcastCallback]
     name: str
 
     def __init__(self, node_name: str) -> None:
         self.name = node_name
-        self.callbacks = set()
+        self.outgoing_nodes = set()
 
-    def data_received(self, data: bytes) -> None:
-        logger.debug(f"{self.name} Received {data} bytes")
+    def __str__(self) -> str:
+        return self.name
 
-        for callback in self.callbacks:
-            logger.debug(f"{self.name} Running {callback.__name__}")
-            callback(data)
+    def _log(
+        self,
+        message: str,
+        level: int = logging.CRITICAL,
+        log_format="N:{self.name}: {message}",
+    ) -> None:
+        logger.log(level, log_format.format_map(locals()))
 
-    def add_data_callback(self, callback: BroadcastCallback) -> None:
-        logger.debug(f"{self.name} Adding broadcast callback {callback.__name__}")
-        self.callbacks.add(callback)
+    def add_outgoing_node(self, other: "Node[Out,Any]") -> None:
+        self.outgoing_nodes.add(other)
+
+    def input(self, data: In, sender: "Node[Any,In]") -> None:
+        self._log(f"Received data from {sender}")
+        self.handle_input(data)
+
+    def output(self, data: Out) -> None:
+        for node in self.outgoing_nodes:
+            self._log(f"Running callback for node {node}")
+            node.input(data, self)
+
+    @abstractmethod
+    def handle_input(self, data: In) -> None: ...
 
 
-class BroadcastStream(Node, asyncio.Protocol):
+class FnNode[In, Out](Node[In, Out]):
+    fn: Callable[[In], None]
+
+    def __init__(self, fn: Callable[[In], None], *args, **kwargs) -> None:
+        self.fn = fn
+
+        super().__init__(*args, **kwargs)
+
+    def handle_input(self, data: In) -> None:
+        self.fn(data)
+
+
+class BroadcastStream(Node[bytes, bytes], asyncio.Protocol):
     own_transport: asyncio.Transport
     on_conn_lost: asyncio.Future[None]
 
@@ -49,25 +75,29 @@ class BroadcastStream(Node, asyncio.Protocol):
         logger.info(f"{self.name} Connection lost")
         self.on_conn_lost.set_result(None)
 
-    def write(self, data: bytes) -> None:
-        logger.debug(f"{self.name} Writing {data} bytes")
-        self.own_transport.write(data)
-
     def wait_for_close(self) -> asyncio.Task[None]:
         async def wait_conn_lost(self) -> None:
             await self.on_conn_lost
 
         return asyncio.create_task(wait_conn_lost(self), name=self.name)
 
+    def handle_input(self, data: bytes) -> None:
+        self._log(f"Writing {len(data)} bytes to own transport")
+        self.own_transport.write(data)
 
-class Gain(Node):
+    def data_received(self, data: bytes) -> None:
+        self._log(f"Received {len(data)} bytes from own transport")
+        self.output(data)
+
+
+class Gain(Node[bytes, bytes]):
     gain: float
 
     def __init__(self, gain: float, task_name: str) -> None:
         self.gain = gain
         super().__init__(task_name)
 
-    def data_received(self, data: bytes) -> None:
-        return super().data_received(
-            (np.frombuffer(data, np.int16) * self.gain).astype(np.int16).tobytes()
-        )
+    def handle_input(self, data: bytes) -> None:
+        adjusted = (np.frombuffer(data, np.int16) * self.gain).astype(np.int16)
+        out_bytes = adjusted.tobytes()
+        self.output(out_bytes)
