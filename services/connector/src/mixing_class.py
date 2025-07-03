@@ -18,14 +18,19 @@ class MixingMode(Node):
         self.tts_writer = None
         self.listening_flag = False
         self.interpretation: StatusCode = StatusCode.IGNORED
+        self.schritt_count = 0
 
         super().__init__(name)
 
     def data_received(self, data):
         if self.listening_flag:
-            self.interpretation = StatusCode(llm_interpreter(data))
-            if self.interpretation != StatusCode.IGNORED:
-                self.listening_flag = False
+            self.queue.put(llm_interpreter(data))
+
+    def interpretation_received(self, data: int):
+        if StatusCode(data) != StatusCode.IGNORED:
+            self.listening_flag = False
+            self.interpretation = StatusCode(data)
+
 
     def data_send(self, data):
         super().data_received(data)
@@ -33,7 +38,7 @@ class MixingMode(Node):
     def add_tts_connection(self, tts_writer: Callable[[bytes], Any]):
         self.tts_writer = tts_writer
 
-    def start_mixing(self, recipe):
+    async def start_mixing(self, recipe):
         """
         Args:
             recipe: The validated recipe object.
