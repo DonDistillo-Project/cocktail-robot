@@ -27,25 +27,30 @@ async def async_main():
 
     logger.info("Creating ESP connection")
     esp_transport, esp_stream = await loop.create_connection(
-        lambda: BroadcastStream("ESP", loop.create_future()), ESP_ADDR, ESP_PORT
+        lambda: BroadcastStream[bytes, bytes]("ESP", loop.create_future()), ESP_ADDR, ESP_PORT
     )
 
     logger.info("Creating RealtimeSTT connection")
     stt_transport, stt_stream = await loop.create_connection(
-        lambda: BroadcastStream("STT", loop.create_future()), STT_ADDR, STT_PORT
+        lambda: BroadcastStream[bytes, str](
+            "STT", loop.create_future(), out_converter=bytes.decode
+        ),
+        STT_ADDR,
+        STT_PORT,
     )
 
     logger.info("Creating RealtimeTTS connection")
     tts_transport, tts_stream = await loop.create_connection(
-        lambda: BroadcastStream("TTS", loop.create_future()), TTS_ADDR, TTS_PORT
+        lambda: BroadcastStream[str, bytes]("TTS", loop.create_future(), in_converter=str.encode),
+        TTS_ADDR,
+        TTS_PORT,
     )
 
     esp_stream.add_outgoing_node(stt_stream)
 
-    stt_stream.add_outgoing_node(tts_stream)
     stt_stream.add_outgoing_node(
         FnNode(
-            lambda data: logger.info(f"Received STT Result: {data.decode()}"),
+            lambda data: logger.info(f"Received STT Result: {data}"),
             name="Debug FN",
         )
     )

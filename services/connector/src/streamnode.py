@@ -56,11 +56,20 @@ class FnNode[In, Out](Node[In, Out]):
         self.fn(data)
 
 
-class BroadcastStream(Node[bytes, bytes], asyncio.Protocol):
+class BroadcastStream[In, Out](Node[In, Out], asyncio.Protocol):
     own_transport: asyncio.Transport
     on_conn_lost: asyncio.Future[None]
 
-    def __init__(self, name: str, on_conn_lost: asyncio.Future[None]) -> None:
+    input_converter: Callable[[In], bytes]
+    output_converter: Callable[[bytes], Out]
+
+    def __init__(
+        self,
+        name: str,
+        on_conn_lost: asyncio.Future[None],
+        in_converter: Callable[[In], bytes] = bytes.__call__,
+        out_converter: Callable[[bytes], Out] = lambda x: x,
+    ) -> None:
         self.on_conn_lost = on_conn_lost
         super().__init__(name)
 
@@ -80,13 +89,15 @@ class BroadcastStream(Node[bytes, bytes], asyncio.Protocol):
 
         return asyncio.create_task(wait_conn_lost(self), name=self.name)
 
-    def handle_input(self, data: bytes) -> None:
-        self._log(f"Writing {len(data)} bytes to own transport")
-        self.own_transport.write(data)
+    def handle_input(self, data: In) -> None:
+        out_data = self.input_converter(data)
+        self._log(f"Writing {len(out_data)} bytes to own transport")
+        self.own_transport.write(out_data)
 
     def data_received(self, data: bytes) -> None:
         self._log(f"Received {len(data)} bytes from own transport")
-        self.output(data)
+        out_data = self.output_converter(data)
+        self.output(out_data)
 
 
 class Gain(Node[bytes, bytes]):
