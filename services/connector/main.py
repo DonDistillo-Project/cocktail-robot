@@ -1,7 +1,7 @@
 import asyncio
 import logging
 
-from src.streamnode import BroadcastStream, Gain
+from src.streamnode import BroadcastStream, FnNode, Gain
 from src.mixing_class import MixingMode
 
 ESP_HOST = "ESP32"
@@ -40,23 +40,25 @@ async def async_main():
         lambda: BroadcastStream("TTS", loop.create_future()), TTS_ADDR, TTS_PORT
     )
 
+    esp_stream.add_outgoing_node(stt_stream)
 
-    esp_stream.add_data_callback(stt_stream.write)
-
-    stt_stream.add_data_callback(tts_stream.write)
-    stt_stream.add_data_callback(
-        lambda data: logger.info(f"Received STT Result: {data.decode()}")
+    stt_stream.add_outgoing_node(tts_stream)
+    stt_stream.add_outgoing_node(
+        FnNode(
+            lambda data: logger.info(f"Received STT Result: {data.decode()}"),
+            name="Debug FN",
+        )
     )
 
-    #mixing mode init
+    # mixing mode init
     init_mixing_class = MixingMode("Mixing_Node")
     init_mixing_class.add_tts_connection(tts_stream.write)
     stt_stream.add_data_callback(init_mixing_class.data_received)
 
     gain = Gain(0.5, "ESP:SpeakerGain")
-    tts_stream.add_data_callback(gain.data_received)
+    tts_stream.add_outgoing_node(gain)
 
-    gain.add_data_callback(esp_stream.write)
+    gain.add_outgoing_node(esp_stream)
 
     pending = [
         esp_stream.wait_for_close(),
