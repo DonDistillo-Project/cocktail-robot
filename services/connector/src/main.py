@@ -7,7 +7,7 @@ from pathlib import Path
 from typing import Any, List
 
 import numpy as np
-from llm import StreamingLLM
+from llm import LLM
 from src.streamnode import BroadcastStream, FnNode, Node
 from openai.types.responses import ResponseFunctionToolCall
 
@@ -61,8 +61,8 @@ class Mode(Enum):
 
 @dataclass
 class State:
-    llm_recipe_search: StreamingLLM
-    llm_mixing: StreamingLLM
+    llm_recipe_search: LLM
+    llm_mixing: LLM
     current_mode: Mode = Mode.RECIPE_SEARCH
 
     # Only relevant in mixing state
@@ -78,12 +78,12 @@ class LLMNode(Node[str | MixingEvent, str]):
     def __init__(self, name: str):
         super().__init__(name)
 
-        llm_recipe_search = StreamingLLM(
+        llm_recipe_search = LLM(
             RESOURCES_DIR / "RECIPE_SEARCH" / "system_prompt.md",
             RESOURCES_DIR / "RECIPE_SEARCH" / "tools.json",
             model=OPENAI_MODEL,
         )
-        llm_mixing = StreamingLLM(
+        llm_mixing = LLM(
             RESOURCES_DIR / "MIXING" / "system_prompt.md",
             RESOURCES_DIR / "MIXING" / "tools.json",
             model=OPENAI_MODEL,
@@ -192,7 +192,7 @@ class LLMNode(Node[str | MixingEvent, str]):
         loop = asyncio.get_event_loop()
         response = await loop.run_in_executor(
             None,  # default thread pool
-            self.state.llm_mixing.generate_streaming_response,
+            self.state.llm_mixing.generate_response,
             sentence,
             self.output,
         )
