@@ -189,10 +189,16 @@ class LLMNode(Node[str | MixingEvent, str]):
         mode = self.state.current_mode
         self._log(f"Generating {mode.name} mode response for message '{sentence}'")
 
+        match mode:
+            case Mode.RECIPE_SEARCH:
+                llm = self.state.llm_recipe_search
+            case Mode.MIXING:
+                llm = self.state.llm_mixing
+
         loop = asyncio.get_event_loop()
         response = await loop.run_in_executor(
             None,  # default thread pool
-            self.state.llm_mixing.generate_response,
+            llm.generate_response,
             sentence,
             self.output,
         )
