@@ -2,8 +2,6 @@ import asyncio
 import logging
 from typing import Any, Callable
 
-import numpy as np
-
 DEFAULT_BUF_SIZE = 128
 
 logger = logging.getLogger(__name__)
@@ -65,7 +63,7 @@ class FnNode[In, Out](Node[In, Out]):
 
 class BroadcastStream[In, Out](Node[In, Out], asyncio.Protocol):
     own_transport: asyncio.Transport
-    on_conn_lost: asyncio.Future[None]
+    on_conn_lost: asyncio.Future[bool]
 
     input_converter: Callable[[In], bytes]
     output_converter: Callable[[bytes], Out]
@@ -73,7 +71,7 @@ class BroadcastStream[In, Out](Node[In, Out], asyncio.Protocol):
     def __init__(
         self,
         name: str,
-        on_conn_lost: asyncio.Future[None],
+        on_conn_lost: asyncio.Future[bool],
         in_converter: Callable[[In], bytes] = bytes.__call__,
         out_converter: Callable[[bytes], Out] = lambda x: x,
     ) -> None:
@@ -88,13 +86,7 @@ class BroadcastStream[In, Out](Node[In, Out], asyncio.Protocol):
 
     def connection_lost(self, exc: Exception | None) -> None:
         logger.info(f"{self.name} Connection lost")
-        self.on_conn_lost.set_result(None)
-
-    def wait_for_close(self) -> asyncio.Task[None]:
-        async def wait_conn_lost(self) -> None:
-            await self.on_conn_lost
-
-        return asyncio.create_task(wait_conn_lost(self), name=self.name)
+        self.on_conn_lost.set_result(True)
 
     def handle_input(self, data: In) -> None:
         out_data = self.input_converter(data)
@@ -105,16 +97,3 @@ class BroadcastStream[In, Out](Node[In, Out], asyncio.Protocol):
         self._log(f"Received {len(data)} bytes from own transport")
         out_data = self.output_converter(data)
         self.output(out_data)
-
-
-class Gain(Node[bytes, bytes]):
-    gain: float
-
-    def __init__(self, gain: float, task_name: str) -> None:
-        self.gain = gain
-        super().__init__(task_name)
-
-    def handle_input(self, data: bytes) -> None:
-        adjusted = (np.frombuffer(data, np.int16) * self.gain).astype(np.int16)
-        out_bytes = adjusted.tobytes()
-        self.output(out_bytes)

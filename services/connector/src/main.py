@@ -3,10 +3,13 @@ import json
 import logging
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Any
+from pathlib import Path
+from typing import Any, List
 
+import numpy as np
 from llm import StreamingLLM
-from src.streamnode import BroadcastStream, FnNode, Gain, Node
+from src.streamnode import BroadcastStream, FnNode, Node
+from openai.types.responses import ResponseFunctionToolCall
 
 from connector.src.mixmode import Recipe, validate_and_parse_arguments
 
@@ -22,10 +25,28 @@ TTS_ADDR = "localhost"
 TTS_PORT = 2345
 TTS_SPRT = 22500
 
+OPENAI_MODEL = "gpt-4.1-mini"
+
+RESOURCES_DIR = Path(__file__).parent.parent / "resources" / "llm"
+
+
 logger = logging.getLogger(__name__)
 logging.basicConfig(
     level=logging.INFO,
 )
+
+
+class Gain(Node[bytes, bytes]):
+    gain: float
+
+    def __init__(self, gain: float, task_name: str) -> None:
+        self.gain = gain
+        super().__init__(task_name)
+
+    def handle_input(self, data: bytes) -> None:
+        adjusted = (np.frombuffer(data, np.int16) * self.gain).astype(np.int16)
+        out_bytes = adjusted.tobytes()
+        self.output(out_bytes)
 
 
 class MixingEvent(Enum):
@@ -34,16 +55,15 @@ class MixingEvent(Enum):
 
 
 class Mode(Enum):
-    SEARCH = 0
+    RECIPE_SEARCH = 0
     MIXING = 1
 
 
 @dataclass
 class State:
-    current_mode: Mode = Mode.SEARCH
-
-    llm_state_search: StreamingLLM = field(default_factory=StreamingLLM)
-    llm_state_mixing: StreamingLLM = field(default_factory=StreamingLLM)
+    llm_recipe_search: StreamingLLM
+    llm_mixing: StreamingLLM
+    current_mode: Mode = Mode.RECIPE_SEARCH
 
     # Only relevant in mixing state
     current_recipe: Recipe | None = None
@@ -57,13 +77,25 @@ class LLMNode(Node[str | MixingEvent, str]):
 
     def __init__(self, name: str):
         super().__init__(name)
-        self.state = State()
+
+        llm_recipe_search = StreamingLLM(
+            RESOURCES_DIR / "RECIPE_SEARCH" / "system_prompt.md",
+            RESOURCES_DIR / "RECIPE_SEARCH" / "tools.json",
+            model=OPENAI_MODEL,
+        )
+        llm_mixing = StreamingLLM(
+            RESOURCES_DIR / "MIXING" / "system_prompt.md",
+            RESOURCES_DIR / "MIXING" / "tools.json",
+            model=OPENAI_MODEL,
+        )
+        self.state = State(llm_recipe_search, llm_mixing)
+
         self.sentence_queue = asyncio.Queue()
         self.mixing_event_queue = asyncio.Queue()
 
     def input(self, data: str | MixingEvent, sender: Node[Any, str | MixingEvent]) -> None:
-        if sender.name == "stt" and isinstance(data, str):
-            self._log("Received data from stt")
+        if sender.name == "STT" and isinstance(data, str):
+            self._log("Received data from STT")
             self.sentence_queue.put_nowait(data)
 
         elif sender.name == "scale" and isinstance(data, MixingEvent):
@@ -73,10 +105,18 @@ class LLMNode(Node[str | MixingEvent, str]):
                 self.mixing_event_queue.put_nowait(data)
 
     def give_mixing_instructions(self) -> None:
-        if self.state.current_recipe is not None:
-            self.output(self.state.current_recipe.schritte[self.state.current_step].beschreibung)
-        else:
-            self.output("KEIN REZEPT VORHANDEN / FERTIG")
+        if self.state.current_recipe is None:
+            self.output("KEIN REZEPT VORHANDEN")
+            return
+
+        schritt = self.state.current_recipe.schritte[self.state.current_step]
+
+        self.output(schritt.beschreibung)
+
+        # TODO: implement entire mixmode functionality:
+        #   - setup scale
+        #   - setup display
+        #   - give llm ability to abort, continue, ... (use function calls)
 
     def start_mixing_mode(self, recipe: Recipe) -> None:
         self.state.current_mode = Mode.MIXING
@@ -84,56 +124,84 @@ class LLMNode(Node[str | MixingEvent, str]):
         self.state.current_recipe = recipe
         self.state.current_step = 0
 
+    def next_recipe_step(self) -> None:
+        assert self.state.current_recipe is not None
+
+        if self.state.current_step >= len(self.state.current_recipe.schritte):
+            self.stop_mixing_mode()
+        else:
+            self.state.current_step += 1
+            self.give_mixing_instructions()
+
     def stop_mixing_mode(self) -> None:
-        self.state.current_mode = Mode.SEARCH
+        self.output("DONE")
+        self.state.current_mode = Mode.RECIPE_SEARCH
+        # TODO: pass summary of mixing process to RECIPE_SEARCH LLM
 
-    async def handle_sentence_search(self, sentence: str) -> None:
-        self._log(f"Generating search mode response for message {sentence}")
+    def handle_start_mixing_mode_call(self, args: dict) -> None:
+        recipe, error = validate_and_parse_arguments(args)
+        if error is None and recipe is not None:
+            self.start_mixing_mode(recipe)
+        else:
+            self._log(f"Error while validating function call: {error}", logging.WARNING)
+            # TODO: pass info back to LLM so it can retry
 
-        loop = asyncio.get_event_loop()
-        response = await loop.run_in_executor(
-            None,
-            self.state.llm_state_search.generate_streaming_response,
-            sentence,
-            self.output,
-        )
+    def handle_next_recipe_step_call(self, args: dict) -> None:
+        self.next_recipe_step()
 
-        for fc in response.function_calls:
-            if fc.name == "start_mixing_mode":
-                recipe, error = validate_and_parse_arguments(json.loads(fc.arguments))
-                if error is None and recipe is not None:
-                    self.start_mixing_mode(recipe)
-                else:
-                    # TODO: Handle bad fcs
-                    self._log(f"Error while validating function call: {error}", logging.WARNING)
+    def handle_stop_mixing_mode_call(self, args: dict) -> None:
+        self.stop_mixing_mode()
 
-    async def handle_sentence_mixing(self, sentence: str) -> None:
-        self._log(f"Generating mixing mode response for message {sentence}")
+    def handle_function_calls(self, function_calls: List[ResponseFunctionToolCall]):
+        FUNC_CALL_HANDLER_MAP = {
+            Mode.RECIPE_SEARCH: {
+                "start_mixing_mode": self.handle_start_mixing_mode_call,
+            },
+            Mode.MIXING: {
+                "stop_mixing_mode": self.handle_stop_mixing_mode_call,
+                "next_recipe_step": self.handle_next_recipe_step_call,
+            },
+        }
 
-        loop = asyncio.get_event_loop()
-        response = await loop.run_in_executor(
-            None,
-            self.state.llm_state_mixing.generate_streaming_response,
-            sentence,
-            self.output,
-        )
+        for fc in function_calls:
+            mode = self.state.current_mode
+            fc_handler = FUNC_CALL_HANDLER_MAP[mode].get(fc.name, None)
 
-        for fc in response.function_calls:
-            if fc.name == "stop_mixing_mode":
-                self.stop_mixing_mode()  # TODO: Think about adding fc parameters
-                return
+            if fc_handler is not None:
+                try:
+                    args = json.loads(fc.arguments)
+                    fc_handler(args)
+                except json.JSONDecodeError as e:
+                    self._log(
+                        f"LLM tried calling '{fc.name}' with arguments in an invalid format:\n{fc.arguments}\nJSON:{e.msg}"
+                    )
+                    # TODO: pass parsing error back to LLM
+                    pass
+
+            else:
+                self._log(f"LLM tried calling '{fc.name}' which doesn't exist (in mode {mode})")
+                # TODO: pass info to LLM
+                ...
 
     async def await_sentence(self) -> None:
         sentence = await self.sentence_queue.get()
 
-        match self.state.current_mode:
-            case Mode.SEARCH:
-                await self.handle_sentence_search(sentence)
-            case Mode.MIXING:
-                await self.handle_sentence_mixing(sentence)
+        mode = self.state.current_mode
+        self._log(f"Generating {mode.name} mode response for message '{sentence}'")
+
+        loop = asyncio.get_event_loop()
+        response = await loop.run_in_executor(
+            None,  # default thread pool
+            self.state.llm_mixing.generate_streaming_response,
+            sentence,
+            self.output,
+        )
+
+        self.handle_function_calls(response.function_calls)
 
     async def await_mixing_event(self) -> None:
         event = await self.mixing_event_queue.get()
+
         if not self.state.current_mode == Mode.MIXING:
             return
 
@@ -142,58 +210,53 @@ class LLMNode(Node[str | MixingEvent, str]):
         match event:
             case MixingEvent.TARGET_WEIGHT_STABLE:
                 self.output("OKAY")
-                if self.state.current_step >= len(self.state.current_recipe.schritte):
-                    self.output("DONE")
-                    self.stop_mixing_mode()
-                else:
-                    self.state.current_step += 1
-                    self.give_mixing_instructions()
-                    # TODO: Set next threshold
+                self.next_recipe_step()
 
             case MixingEvent.TARGET_WEIGHT_SURPASSED:
                 self.output("DU HAST ZU VIEL HINZUGEFÜGT (du bist dumm)")
 
     async def loop(self) -> None:
-        futures = [
-            asyncio.ensure_future(self.await_sentence()),
-            asyncio.ensure_future(self.await_mixing_event()),
-        ]
-        while True:
-            if futures[0].done:
-                futures[0] = asyncio.ensure_future(self.await_sentence())
-            if futures[1].done:
-                futures[1] = asyncio.ensure_future(self.await_mixing_event())
+        async def continuous_task(coro_func):
+            while True:
+                await coro_func()
 
-            _ = await asyncio.wait(futures, return_when=asyncio.FIRST_COMPLETED)
+        async with asyncio.TaskGroup() as tg:
+            tg.create_task(continuous_task(self.await_sentence))
+            tg.create_task(continuous_task(self.await_mixing_event))
 
 
 async def async_main():
     loop = asyncio.get_event_loop()
 
     logger.info("Creating ESP connection")
+    on_esp_conn_lost = loop.create_future()
     esp_transport, esp_stream = await loop.create_connection(
-        lambda: BroadcastStream[bytes, bytes]("ESP", loop.create_future()), ESP_ADDR, ESP_PORT
+        lambda: BroadcastStream[bytes, bytes]("ESP", on_esp_conn_lost),
+        ESP_ADDR,
+        ESP_PORT,
     )
 
     logger.info("Creating RealtimeSTT connection")
+    on_stt_conn_lost = loop.create_future()
     stt_transport, stt_stream = await loop.create_connection(
-        lambda: BroadcastStream[bytes, str](
-            "STT", loop.create_future(), out_converter=bytes.decode
-        ),
+        lambda: BroadcastStream[bytes, str]("STT", on_stt_conn_lost, out_converter=bytes.decode),
         STT_ADDR,
         STT_PORT,
     )
 
     logger.info("Creating RealtimeTTS connection")
+    on_tts_conn_lost = loop.create_future()
     tts_transport, tts_stream = await loop.create_connection(
-        lambda: BroadcastStream[str, bytes]("TTS", loop.create_future()), TTS_ADDR, TTS_PORT
+        lambda: BroadcastStream[str, bytes]("TTS", on_tts_conn_lost),
+        TTS_ADDR,
+        TTS_PORT,
     )
 
-    llm_stream = LLMNode("LLM")
+    llm_node = LLMNode("LLM")
 
     esp_stream.add_outgoing_node(stt_stream)
 
-    stt_stream.add_outgoing_node(llm_stream)
+    stt_stream.add_outgoing_node(llm_node)
     stt_stream.add_outgoing_node(
         FnNode(
             lambda data: logger.info(f"Received STT Result: {data}"),
@@ -201,17 +264,18 @@ async def async_main():
         )
     )
 
-    llm_stream.add_outgoing_node(tts_stream)
+    llm_node.add_outgoing_node(tts_stream)
 
     gain = Gain(0.5, "ESP:SpeakerGain")
     tts_stream.add_outgoing_node(gain)
 
     gain.add_outgoing_node(esp_stream)
+
     pending = [
-        esp_stream.wait_for_close(),
-        stt_stream.wait_for_close(),
-        tts_stream.wait_for_close(),
-        asyncio.ensure_future(llm_stream.loop()),
+        on_esp_conn_lost,
+        on_stt_conn_lost,
+        on_tts_conn_lost,
+        asyncio.ensure_future(llm_node.loop()),
         asyncio.ensure_future(asyncio.to_thread(input, "Press ENTER to exit\n")),
     ]
 
