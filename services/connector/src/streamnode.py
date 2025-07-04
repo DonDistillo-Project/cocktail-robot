@@ -1,7 +1,7 @@
 import asyncio
 import logging
 from typing import Any, Callable
-from abc import ABC, abstractmethod
+
 import numpy as np
 
 DEFAULT_BUF_SIZE = 128
@@ -10,9 +10,8 @@ logger = logging.getLogger(__name__)
 
 
 class Node[In, Out]:
-    outgoing_nodes: set["Node[Out, Any]"]
-
     name: str
+    outgoing_nodes: set["Node[Out, Any]"]
 
     def __init__(self, node_name: str) -> None:
         self.name = node_name
@@ -29,10 +28,18 @@ class Node[In, Out]:
     ) -> None:
         logger.log(level, log_format.format_map(locals()))
 
-    def add_outgoing_node(self, other: "Node[Out,Any]") -> None:
+    def add_outgoing_node(self, other: "Node[Any, Any]") -> None:
+        """
+        Add an outgoing connection to another node.
+
+        The other node's input type must be compatible with this node's
+        output type. This means if this node outputs type Out, the other
+        node must accept Out (possibly as part of a Union).
+        """
+
         self.outgoing_nodes.add(other)
 
-    def input(self, data: In, sender: "Node[Any,In]") -> None:
+    def input(self, data: In, sender: "Node[Any, In]") -> None:
         self._log(f"Received data from {sender}")
         self.handle_input(data)
 

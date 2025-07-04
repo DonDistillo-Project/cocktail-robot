@@ -6,7 +6,7 @@ from enum import Enum
 from typing import Any
 
 from llm import StreamingLLM
-from src.streamnode import BroadcastStream, Gain, Node
+from src.streamnode import BroadcastStream, FnNode, Gain, Node
 
 from connector.src.mixmode import Recipe, validate_and_parse_arguments
 
@@ -29,34 +29,28 @@ logging.basicConfig(
 
 
 class MixingEvent(Enum):
-    THRESHOLD_REACHED = 0
-    THRESHOLD_SURPASSED = 1
+    TARGET_WEIGHT_STABLE = 0
+    TARGET_WEIGHT_SURPASSED = 1
 
 
 class Mode(Enum):
-    IDLE = 0
+    SEARCH = 0
     MIXING = 1
-    ...
 
 
 @dataclass
 class State:
-    currently_listening: bool = True
-    current_mode: Mode = Mode.IDLE
+    current_mode: Mode = Mode.SEARCH
 
-    llm_state_idle: StreamingLLM = field(default_factory=StreamingLLM)
+    llm_state_search: StreamingLLM = field(default_factory=StreamingLLM)
     llm_state_mixing: StreamingLLM = field(default_factory=StreamingLLM)
 
-    # ONLY MIXING
+    # Only relevant in mixing state
     current_recipe: Recipe | None = None
     current_step: int = 0
 
 
 class LLMNode(Node[str | MixingEvent, str]):
-    """
-    Adapter between LLM and pipeline.
-    """
-
     state: State
     sentence_queue: asyncio.Queue[str]
     mixing_event_queue: asyncio.Queue[MixingEvent]
@@ -68,9 +62,6 @@ class LLMNode(Node[str | MixingEvent, str]):
         self.mixing_event_queue = asyncio.Queue()
 
     def input(self, data: str | MixingEvent, sender: Node[Any, str | MixingEvent]) -> None:
-        """
-        Pass user input (text) to the LLM.
-        """
         if sender.name == "stt" and isinstance(data, str):
             self._log("Received data from stt")
             self.sentence_queue.put_nowait(data)
@@ -94,15 +85,15 @@ class LLMNode(Node[str | MixingEvent, str]):
         self.state.current_step = 0
 
     def stop_mixing_mode(self) -> None:
-        self.state.current_mode = Mode.IDLE
+        self.state.current_mode = Mode.SEARCH
 
-    async def handle_sentence_idle(self, sentence: str) -> None:
-        self._log(f"Generating idle mode response for message {sentence}")
+    async def handle_sentence_search(self, sentence: str) -> None:
+        self._log(f"Generating search mode response for message {sentence}")
 
         loop = asyncio.get_event_loop()
         response = await loop.run_in_executor(
             None,
-            self.state.llm_state_idle.generate_streaming_response,
+            self.state.llm_state_search.generate_streaming_response,
             sentence,
             self.output,
         )
@@ -136,8 +127,8 @@ class LLMNode(Node[str | MixingEvent, str]):
         sentence = await self.sentence_queue.get()
 
         match self.state.current_mode:
-            case Mode.IDLE:
-                await self.handle_sentence_idle(sentence)
+            case Mode.SEARCH:
+                await self.handle_sentence_search(sentence)
             case Mode.MIXING:
                 await self.handle_sentence_mixing(sentence)
 
@@ -149,7 +140,7 @@ class LLMNode(Node[str | MixingEvent, str]):
         assert self.state.current_recipe is not None
 
         match event:
-            case MixingEvent.THRESHOLD_REACHED:
+            case MixingEvent.TARGET_WEIGHT_STABLE:
                 self.output("OKAY")
                 if self.state.current_step >= len(self.state.current_recipe.schritte):
                     self.output("DONE")
@@ -159,7 +150,7 @@ class LLMNode(Node[str | MixingEvent, str]):
                     self.give_mixing_instructions()
                     # TODO: Set next threshold
 
-            case MixingEvent.THRESHOLD_SURPASSED:
+            case MixingEvent.TARGET_WEIGHT_SURPASSED:
                 self.output("DU HAST ZU VIEL HINZUGEFÜGT (du bist dumm)")
 
     async def loop(self) -> None:
@@ -181,33 +172,41 @@ async def async_main():
 
     logger.info("Creating ESP connection")
     esp_transport, esp_stream = await loop.create_connection(
-        lambda: BroadcastStream("ESP", loop.create_future()), ESP_ADDR, ESP_PORT
+        lambda: BroadcastStream[bytes, bytes]("ESP", loop.create_future()), ESP_ADDR, ESP_PORT
     )
 
     logger.info("Creating RealtimeSTT connection")
     stt_transport, stt_stream = await loop.create_connection(
-        lambda: BroadcastStream("STT", loop.create_future()), STT_ADDR, STT_PORT
+        lambda: BroadcastStream[bytes, str](
+            "STT", loop.create_future(), out_converter=bytes.decode
+        ),
+        STT_ADDR,
+        STT_PORT,
     )
 
     logger.info("Creating RealtimeTTS connection")
     tts_transport, tts_stream = await loop.create_connection(
-        lambda: BroadcastStream("TTS", loop.create_future()), TTS_ADDR, TTS_PORT
+        lambda: BroadcastStream[str, bytes]("TTS", loop.create_future()), TTS_ADDR, TTS_PORT
     )
 
     llm_stream = LLMNode("LLM")
 
-    esp_stream.add_data_callback(stt_stream.write)
+    esp_stream.add_outgoing_node(stt_stream)
 
-    stt_stream.add_data_callback(llm_stream.data_received)
-    stt_stream.add_data_callback(lambda data: logger.info(f"Received STT Result: {data.decode()}"))
+    stt_stream.add_outgoing_node(llm_stream)
+    stt_stream.add_outgoing_node(
+        FnNode(
+            lambda data: logger.info(f"Received STT Result: {data}"),
+            name="Debug FN",
+        )
+    )
 
-    llm_stream.add_data_callback(tts_stream.write)
+    llm_stream.add_outgoing_node(tts_stream)
 
     gain = Gain(0.5, "ESP:SpeakerGain")
-    tts_stream.add_data_callback(gain.data_received)
+    tts_stream.add_outgoing_node(gain)
 
-    gain.add_data_callback(esp_stream.write)
-
+    gain.add_outgoing_node(esp_stream)
     pending = [
         esp_stream.wait_for_close(),
         stt_stream.wait_for_close(),
