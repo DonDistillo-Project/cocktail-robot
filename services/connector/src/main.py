@@ -1,17 +1,16 @@
 import asyncio
-import json
 import logging
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from enum import Enum
 from pathlib import Path
 from typing import Any, List
 
 import numpy as np
 from llm import LLM
-from src.streamnode import BroadcastStream, FnNode, Node
+from mixmode import Recipe, StartMixingArguments, StopMixingArguments
 from openai.types.responses import ResponseFunctionToolCall
-
-from connector.src.mixmode import Recipe, validate_and_parse_arguments
+from pydantic import ValidationError
+from src.streamnode import BroadcastStream, FnNode, Node
 
 ESP_HOST = "ESP32"
 ESP_ADDR = "192.168.71.16"
@@ -66,6 +65,7 @@ class State:
     current_mode: Mode = Mode.RECIPE_SEARCH
 
     # Only relevant in mixing state
+    current_call_to_mixmode: ResponseFunctionToolCall | None = None
     current_recipe: Recipe | None = None
     current_step: int = 0
 
@@ -105,55 +105,66 @@ class LLMNode(Node[str | MixingEvent, str]):
                 self.mixing_event_queue.put_nowait(data)
 
     def give_mixing_instructions(self) -> None:
-        if self.state.current_recipe is None:
-            self.output("KEIN REZEPT VORHANDEN")
-            return
+        assert self.state.current_recipe is not None
+        step = self.state.current_recipe.schritte[self.state.current_step]
 
-        schritt = self.state.current_recipe.schritte[self.state.current_step]
+        self.output(step.beschreibung)  # TTS
+        # TODO: setup scale
+        # TODO: show instruction on display
 
-        self.output(schritt.beschreibung)
+    def stop_mixing_mode(self, reason: str) -> None:
+        self.output("DONE")
+        self.state.current_mode = Mode.RECIPE_SEARCH
 
-        # TODO: implement entire mixmode functionality:
-        #   - setup scale
-        #   - setup display
-        #   - give llm ability to abort, continue, ... (use function calls)
-
-    def start_mixing_mode(self, recipe: Recipe) -> None:
-        self.state.current_mode = Mode.MIXING
-
-        self.state.current_recipe = recipe
-        self.state.current_step = 0
+        current_call = self.state.current_call_to_mixmode
+        assert current_call is not None
+        self.state.llm_recipe_search.add_function_call_output(reason, current_call)
 
     def next_recipe_step(self) -> None:
         assert self.state.current_recipe is not None
 
         if self.state.current_step >= len(self.state.current_recipe.schritte):
-            self.stop_mixing_mode()
+            self.stop_mixing_mode(reason="Das Rezept wurde erfolgreich zubereitet.")
         else:
             self.state.current_step += 1
             self.give_mixing_instructions()
 
-    def stop_mixing_mode(self) -> None:
-        self.output("DONE")
-        self.state.current_mode = Mode.RECIPE_SEARCH
-        # TODO: pass summary of mixing process to RECIPE_SEARCH LLM
-
-    def handle_start_mixing_mode_call(self, args: dict) -> None:
-        recipe, error = validate_and_parse_arguments(args)
-        if error is None and recipe is not None:
-            self.start_mixing_mode(recipe)
-        else:
-            self._log(f"Error while validating function call: {error}", logging.WARNING)
+    def handle_start_mixing_mode_call(self, call: ResponseFunctionToolCall) -> None:
+        try:
+            args = StartMixingArguments.model_validate_json(call.arguments)
+        except ValidationError as e:
+            self._log(
+                f"Error while parsing or validating function call to '{call.name}': {e}",
+                logging.WARNING,
+            )
             # TODO: pass info back to LLM so it can retry
+            return
 
-    def handle_next_recipe_step_call(self, args: dict) -> None:
+        self.state.current_mode = Mode.MIXING
+        self.state.current_call_to_mixmode = call
+        self.state.current_recipe = args.rezept
+        self.state.current_step = 0
+
+        self.give_mixing_instructions()
+
+    def handle_stop_mixing_mode_call(self, call: ResponseFunctionToolCall) -> None:
+        try:
+            args = StopMixingArguments.model_validate_json(call.arguments)
+        except ValidationError as e:
+            self._log(
+                f"Error while parsing or validating function call to '{call.name}': {e}",
+                logging.WARNING,
+            )
+            # TODO: pass info back to LLM so it can retry
+            return
+
+        self.stop_mixing_mode(reason=args.grund)
+
+    def handle_next_recipe_step_call(self, call: ResponseFunctionToolCall) -> None:
         self.next_recipe_step()
 
-    def handle_stop_mixing_mode_call(self, args: dict) -> None:
-        self.stop_mixing_mode()
-
-    def handle_function_calls(self, function_calls: List[ResponseFunctionToolCall]):
-        FUNC_CALL_HANDLER_MAP = {
+    def dispatch_function_calls(self, function_calls: List[ResponseFunctionToolCall]):
+        FUNC_CALL_HANDLER_MAP = {  # TODO: make this global
             Mode.RECIPE_SEARCH: {
                 "start_mixing_mode": self.handle_start_mixing_mode_call,
             },
@@ -163,25 +174,18 @@ class LLMNode(Node[str | MixingEvent, str]):
             },
         }
 
-        for fc in function_calls:
-            mode = self.state.current_mode
-            fc_handler = FUNC_CALL_HANDLER_MAP[mode].get(fc.name, None)
+        handler_map = FUNC_CALL_HANDLER_MAP[self.state.current_mode]
+        for call in function_calls:
+            call_handler = handler_map.get(call.name, None)
 
-            if fc_handler is not None:
-                try:
-                    args = json.loads(fc.arguments)
-                    fc_handler(args)
-                except json.JSONDecodeError as e:
-                    self._log(
-                        f"LLM tried calling '{fc.name}' with arguments in an invalid format:\n{fc.arguments}\nJSON:{e.msg}"
-                    )
-                    # TODO: pass parsing error back to LLM
-                    pass
-
-            else:
-                self._log(f"LLM tried calling '{fc.name}' which doesn't exist (in mode {mode})")
+            if call_handler is None:
+                self._log(
+                    f"LLM tried calling '{call.name}' which doesn't exist (in mode {self.state.current_mode})"
+                )
                 # TODO: pass info to LLM
-                ...
+                continue
+
+            call_handler(call)
 
     async def await_sentence(self) -> None:
         sentence = await self.sentence_queue.get()
@@ -203,7 +207,7 @@ class LLMNode(Node[str | MixingEvent, str]):
             self.output,
         )
 
-        self.handle_function_calls(response.function_calls)
+        self.dispatch_function_calls(response.function_calls)
 
     async def await_mixing_event(self) -> None:
         event = await self.mixing_event_queue.get()

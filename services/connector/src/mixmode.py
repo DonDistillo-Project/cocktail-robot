@@ -1,8 +1,6 @@
-from typing import Any, Dict, List, Tuple, Literal, Optional, Union
-from pydantic import BaseModel, Field, ConfigDict, ValidationError
-import asyncio
+from typing import Literal, Optional, Union
 
-from streamnode import BroadcastStream
+from pydantic import BaseModel, ConfigDict, Field
 
 
 class InstructionStep(BaseModel):
@@ -15,7 +13,7 @@ class InstructionStep(BaseModel):
 
 
 class IngredientStep(BaseModel):
-    """The addition of a specific ingredient."""
+    """An instruction that entails a certain ingredient being added."""
 
     typ: Literal["zutat"]
     beschreibung: str = Field(..., min_length=1)
@@ -30,71 +28,17 @@ Step = Union[IngredientStep, InstructionStep]
 
 
 class Recipe(BaseModel):
-    """Represents a recipe with a name and a list of steps."""
-
     name: str = Field(..., min_length=1)
-    schritte: List[Step] = Field(..., min_length=1)
+    schritte: list[Step] = Field(..., min_length=1)
 
 
-class LLMArguments(BaseModel):
-    """Represents the top-level arguments structure from the LLM."""
-
+class StartMixingArguments(BaseModel):
     rezept: Recipe
 
     model_config = ConfigDict(extra="forbid")
 
 
-def validate_and_parse_arguments(args: Dict[str, Any]) -> Tuple[Recipe | None, str | None]:
-    """
-    Validates the arguments with Pydantic and creates the Recipe object on success.
+class StopMixingArguments(BaseModel):
+    grund: str
 
-    Returns:
-        A tuple (Recipe object, None) on success.
-        A tuple (None, "error message") on a validation error.
-    """
-    try:
-        parsed_args = LLMArguments.model_validate(args)
-        return parsed_args.rezept, None
-    except ValidationError as e:
-        return None, f"Error: args for 'start_mixing_mode' do not meet specification: {e}"
-
-
-def handle_mixing_mode_call(args: Dict[str, Any]) -> Tuple[bool, str]:
-    """
-    Handles the 'start_mixing_mode' function call from the LLM.
-
-    Returns:
-        A tuple (True, results) on successful validation and execution.
-        A tuple (False, error message) on failure.
-    """
-    recipe, error_message = validate_and_parse_arguments(args)
-
-    if not recipe:
-        return False, str(error_message)
-
-    mixing_results = start_mixing_mode(recipe)
-    return True, mixing_results
-
-def start_mixing_mode(recipe: Recipe) -> str:
-    """
-    Args:
-        recipe: The validated recipe object.
-
-    Returns:
-        A summary of the mixing process.
-    """
-
-    # Example: "User aborted at step 2 due to a missing ingredient."
-    summary_of_mixing_process = ""
-
-    print("Mixing mode started with recipe:\n" + recipe.name)
-
-
-
-    for schritt in recipe.schritte:
-        if isinstance(schritt, InstructionStep):
-            tts_stream.write()
-
-
-
-    return summary_of_mixing_process
+    model_config = ConfigDict(extra="forbid")
