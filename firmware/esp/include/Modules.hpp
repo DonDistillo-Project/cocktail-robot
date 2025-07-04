@@ -9,3 +9,4 @@
 #include "Modules/Mic.hpp"
 #include "Modules/Speaker.hpp"
 #include "Modules/AudioStreams.hpp"
+#include "Modules/Control.hpp"
