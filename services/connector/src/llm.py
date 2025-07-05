@@ -37,11 +37,13 @@ class LLM:
 
     def generate_response(
         self,
-        message_content: str,
+        message_content: str | None = None,
         stream_callback: Callable[[str], Any] | None = None,
     ) -> LLMResponse:
         """
         Generate a response for the message passed.
+
+        If **message_content** is not passed (or None is passed), the LLM will generate a response based on solely the current chat history.
 
         If **stream_callback** is passed, it will be called for each part of the output text of the LLM's response.
         Function calls need to be retrieved from the Response object that's returned after the entire response was completed.
@@ -93,6 +95,10 @@ class LLM:
             self.lock.release()
 
     def add_function_call_output(self, output: str, function_call: ResponseFunctionToolCall):
+        """
+        Appends the result of the function to the history.
+        Does NOT generate a response.
+        """
         self.history.append(
             {
                 "type": "function_call_output",
