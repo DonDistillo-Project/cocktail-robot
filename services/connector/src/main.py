@@ -299,10 +299,14 @@ class LLMNode(Node[str | MixingEvent, str]):
         match event:
             case MixingEvent.TARGET_WEIGHT_STABLE:
                 self.output("OKAY")
+                self.state.current_llm.add_system_message(
+                    "User added expected amount of ingredient. Next step ..."
+                )
                 self.next_recipe_step()
 
             case MixingEvent.TARGET_WEIGHT_SURPASSED:
                 self.output("DU HAST ZU VIEL HINZUGEFÜGT (du bist dumm)")
+                self.state.current_llm.add_system_message("User added more than expected.")
 
     async def loop(self) -> None:
         async def continuous_task(coro_func):

@@ -106,3 +106,15 @@ class LLM:
                 "output": output,
             }
         )
+
+    def add_system_message(self, message: str):
+        """
+        Appends a system message to the history.
+        Does NOT generate a response.
+        """
+        self.history.append(
+            {
+                "role": "system",
+                "message": message,
+            }  # type: ignore (see above)
+        )
