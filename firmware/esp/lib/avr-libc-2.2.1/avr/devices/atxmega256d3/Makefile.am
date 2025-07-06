@@ -1,0 +1,134 @@
+# Copyright (c) 2004,  Theodore A. Roth
+# Copyright (c) 2005, 2008  Anatoly Sokolov
+# All rights reserved.
+#
+# Redistribution and use in source and binary forms, with or without
+# modification, are permitted provided that the following conditions are met:
+#
+# * Redistributions of source code must retain the above copyright
+#   notice, this list of conditions and the following disclaimer.
+# * Redistributions in binary form must reproduce the above copyright
+#   notice, this list of conditions and the following disclaimer in
+#   the documentation and/or other materials provided with the
+#   distribution.
+# * Neither the name of the copyright holders nor the names of
+#   contributors may be used to endorse or promote products derived
+#   from this software without specific prior written permission.
+#
+# THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+# AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+# IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+# ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT OWNER OR CONTRIBUTORS BE
+# LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
+# CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
+# SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+# INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
+# CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
+# ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
+# POSSIBILITY OF SUCH DAMAGE.
+#
+
+AVR_TARGET          = atxmega256d3
+if HAS_DEV_LIB
+if HAS_GCC_5_1
+# avr-gcc 5.1.0 expects crt file as crt1.o and 
+# device library in dev directory
+AVR_TARGET_CRT      = crt1.o
+AVR_INSTALL_DIR     = dev/atxmega256d3
+else
+# avr-gcc > 5.1.0 expects crt file as crt<device name>.o and
+# device library in multi-lib directory itself
+AVR_TARGET_CRT      = crtatxmega256d3.o
+AVR_INSTALL_DIR     = $(MULTIDIR_atxmega256d3)
+endif
+else
+AVR_TARGET_CRT      = crtx256d3.o
+AVR_INSTALL_DIR     = $(MULTIDIR_atxmega256d3)
+endif
+AVR_TARGET_DEFS     = 
+AVR_TARGET_CFLAGS   = -Os $(FNO_JUMP_TABLES)
+AVR_TARGET_ASFLAGS  = 
+
+VPATH = $(top_srcdir)/crt1:$(top_srcdir)/libc/misc
+
+if HAS_atxmega256d3
+
+if HAS_DEV_LIB
+include $(top_srcdir)/libc/misc/Rules.am
+endif
+
+AM_CPPFLAGS = -I$(top_srcdir)/common -I$(top_srcdir)/include -I$(top_builddir)/include
+
+AVRLIB_CFLAGS = @CDEBUG@ -Wall -W -Wstrict-prototypes -mmcu=$(AVR_TARGET) $(AVR_TARGET_DEFS) $(AVR_TARGET_CFLAGS)
+
+AVRLIB_ASFLAGS = -x assembler-with-cpp @ASDEBUG@ -mmcu=$(AVR_TARGET) $(AVR_TARGET_DEFS) -DIOSYMFILE=\"iosym/$(AVR_TARGET).S\" $(AVR_TARGET_ASFLAGS)
+
+AM_CFLAGS = $(AVRLIB_CFLAGS)
+AM_CCASFLAGS = $(AM_CPPFLAGS) $(AVRLIB_ASFLAGS)
+
+
+__install_dir = $(prefix)/avr/lib/$(AVR_INSTALL_DIR)
+
+avrdir = $(__install_dir)
+avrlibdir = $(__install_dir)
+
+noinst_LIBRARIES = libcrt.a
+nodist_libcrt_a_SOURCES = gcrt1.S
+
+if HAS_DEV_LIB
+if HAS_GCC_5_1
+# avr-gcc 5.1.0 expects device library as libdev.a
+avr_LIBRARIES = libdev.a
+nodist_libdev_a_SOURCES = $(eeprom_asm_sources)
+else
+# avr-gcc > 5.1.0 expects device library as lib<device name>.a
+avr_LIBRARIES = libatxmega256d3.a
+nodist_libatxmega256d3_a_SOURCES = $(eeprom_c_sources) $(dev_c_sources) \
+	$(eeprom_asm_sources) $(dev_asm_sources)
+endif
+endif
+
+avr_DATA = $(AVR_TARGET_CRT)
+
+$(AVR_TARGET_CRT): gcrt1.o
+	rm -f $@
+	ln $< $@ || cp $< $@
+
+## If -mdouble=32/64 resp. -mlong-double=32/64 is mentioned in
+## avr-gcc -print-multi-lib -- which means that there is some multilib
+## variant that needs the respective option -- then just copy
+## crtatxmega256d3.o and libatxmega256d3.a to the respective multilib-subfolder.
+
+if HAS_MULTIOPT_double64
+avrD64dir = $(avrdir)/$(DIR_double64)
+avrD64libdir = $(avrlibdir)/$(DIR_double64)
+avrD64_DATA = $(AVR_TARGET_CRT)
+avrD64_LIBRARIES = libatxmega256d3.a
+endif
+
+if HAS_MULTIOPT_double32
+avrD32dir = $(avrdir)/$(DIR_double32)
+avrD32libdir = $(avrlibdir)/$(DIR_double32)
+avrD32_DATA = $(AVR_TARGET_CRT)
+avrD32_LIBRARIES = libatxmega256d3.a
+endif
+
+if HAS_MULTIOPT_long_double64
+avrL64dir = $(avrdir)/$(DIR_long_double64)
+avrL64libdir = $(avrlibdir)/$(DIR_long_double64)
+avrL64_DATA = $(AVR_TARGET_CRT)
+avrL64_LIBRARIES = libatxmega256d3.a
+endif
+
+if HAS_MULTIOPT_long_double32
+avrL32dir = $(avrdir)/$(DIR_long_double32)
+avrL32libdir = $(avrlibdir)/$(DIR_long_double32)
+avrL32_DATA = $(AVR_TARGET_CRT)
+avrL32_LIBRARIES = libatxmega256d3.a
+endif
+
+else
+
+echo all distdir install installdirs clean distclean uninstall check:
+
+endif

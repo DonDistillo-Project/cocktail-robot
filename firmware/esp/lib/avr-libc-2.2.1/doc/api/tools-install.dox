@@ -1,0 +1,917 @@
+/* Copyright (c) 2002,2005, Theodore Roth
+   Copyright (c) 2006, Joerg Wunsch
+   Copyright (c) 2007, 2010 Eric B. Weddington
+   All rights reserved.
+
+   Redistribution and use in source and binary forms, with or without
+   modification, are permitted provided that the following conditions are met:
+
+   * Redistributions of source code must retain the above copyright
+     notice, this list of conditions and the following disclaimer.
+   * Redistributions in binary form must reproduce the above copyright
+     notice, this list of conditions and the following disclaimer in
+     the documentation and/or other materials provided with the
+     distribution.
+   * Neither the name of the copyright holders nor the names of
+     contributors may be used to endorse or promote products derived
+     from this software without specific prior written permission.
+
+  THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+  AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+  IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+  ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT OWNER OR CONTRIBUTORS BE
+  LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
+  CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
+  SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+  INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
+  CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
+  ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
+  POSSIBILITY OF SUCH DAMAGE. */
+
+/* $Id$ */
+
+/** 
+
+\page install_tools Building and Installing the GNU Tool Chain
+\addindex installation
+
+This chapter shows how to build and install, from source code, a complete 
+development environment for the AVR processors using the GNU toolset. There are 
+two main sections, one for Linux, FreeBSD, and other Unix-like operating
+systems, and another section for Windows.
+
+- \ref required_tools
+- \ref optional_tools
+- \ref install_unix
+  - \ref install_preparations
+    - \ref install_location
+    - \ref install_dir_layout
+  - \ref install_avr_binutils "GNU Binutils"
+  - \ref install_avr_gcc "GCC"
+  - \ref install_avr_libc
+  - \ref install_avrprog
+  - \ref install_simulavr
+  - \ref install_avarice
+- \ref install_windows
+  - \ref install_windows_tools "Required Tools"
+  - \ref install_windows_building "Building"
+- \ref install_canadian
+- \ref using_git
+
+\section required_tools Required AVR Tools
+\addindex tools, required
+
+<dl>
+<dt>GNU Binutils</dt>
+<dd>
+  Project Home: https://sourceware.org/binutils <br>
+  Source Downloads: https://sourceware.org/pub/binutils/releases <br>
+  FTP: anonymous\@ftp.gnu.org/gnu/binutils <br>
+  Git: git://sourceware.org/git/binutils-gdb.git <br>
+  GitHub Mirror: https://github.com/bminor/binutils-gdb <br>
+  \ref install_avr_binutils "Installation"
+</dd>
+
+<dt>GCC</dt>
+<dd>
+  Project Home https://gcc.gnu.org <br>
+  Mirrors Site: https://gcc.gnu.org/mirrors.html <br>
+  FTP: anonymous\@ftp.gnu.org/gnu/gcc <br>
+  Git: git://gcc.gnu.org/git/gcc.git <br>
+  GitHub Mirror: https://github.com/gcc-mirror/gcc <br>
+  Installation: https://gcc.gnu.org/install <br>
+  \ref install_avr_gcc "Installation"
+</dd>
+
+<dt>AVR-LibC</dt>
+<dd>
+  Project Home: http://savannah.gnu.org/projects/avr-libc <br>
+  Source Downloads: https://download-mirror.savannah.gnu.org/releases/avr-libc <br>
+  Git: %https://github.com/avrdudes/avr-libc.git <br>
+  GitHub: https://github.com/avrdudes/avr-libc <br>
+  \ref install_avr_libc "Installation"
+</dd>
+</dl>
+
+\section optional_tools Optional AVR Tools
+\addindex tools, optional
+
+You can develop programs for AVR devices without the following tools.  They may
+or may not be of use for you.
+
+<dl>
+<dt>AVRDUDE</dt>
+<dd>
+  Project Home: http://savannah.nongnu.org/projects/avrdude <br>
+  Git: %https://github.com/avrdudes/avrdude.git <br>
+  GitHub: https://github.com/avrdudes/avrdude <br>
+  \ref install_avrprog "Installation" <br>
+  \ref using_avrprog "Usage Notes"
+</dd>
+
+<dt>GDB</dt>
+<dd>
+  The GNU Debugger GDB is hosted together with GNU Binutils.
+  When you don't want or need GDB, you can configure Binutils
+  with \c \--disable-gdb.
+</dd>
+
+<dt>SimulAVR</dt>
+<dd>
+  http://savannah.gnu.org/projects/simulavr <br>
+  \ref install_simulavr "Installation"
+</dd>
+
+<dt>AVaRICE</dt>
+<dd>
+  GitHub: https://github.com/avrdudes/avarice <br>
+  \ref install_avarice "Installation"<br>
+</dd>
+</dl>
+
+\section install_unix Building and Installing under Linux, FreeBSD, and Others
+
+The default behaviour for most of these tools is to install every thing under
+the \c /usr/local directory.  In order to keep the AVR tools separate from the
+base system, it is usually better to install everything into
+<tt>/usr/local/avr</tt>.  If the \c /usr/local/avr directory does not exist,
+you should create it before trying to install anything.  You will need
+\c root access to install there.  If you don't have or want root access to the
+system, you can alternatively install in your home directory, for example, in
+<tt>$HOME/local/avr</tt>.  Where you install is a completely arbitrary
+decision, but should be consistent for all the tools.
+
+\warning If you have \c CC set to anything other than \c avr-gcc in your
+environment, this will cause the configure script to fail. It is best to not
+have \c CC set at all.
+
+\note It is usually the best to use the latest released version of
+each of the tools.
+
+
+\subsection install_preparations Preparations
+
+\subsubsection install_location Install Location
+
+You specify the installation directory by using the <tt>\--prefix=dir</tt>
+option with the \c configure script.  It is important to install all the AVR
+tools in the same directory or some of the tools will not work correctly.  To
+ensure consistency and simplify the discussion, we will use \c $PREFIX to
+refer to whatever directory you wish to install in.  You can set this as an
+environment variable if you wish as such (using a Bourne-like shell):
+
+\addindex $PREFIX
+\addindex --prefix
+\verbatim
+$ PREFIX=$HOME/local/avr
+$ export PREFIX
+\endverbatim
+
+\addindex $PATH
+\anchor path \note Be sure that you have your \c PATH environment variable set
+to search the directory you install everything in \e before you start
+installing anything.  For example, if you use <tt>\--prefix=$PREFIX</tt>, you
+must have \c $PREFIX/bin in your exported \c PATH. As such:
+
+\verbatim
+$ PATH=$PATH:$PREFIX/bin
+$ export PATH
+\endverbatim
+
+\subsubsection install_dir_layout Directory Layout
+
+The instructions below build Binutils, GCC and AVR-LibC \e outside of the
+source tree, because:
+
+- When something goes wrong, you can just remove the build directory and
+  start all over again with a fresh build folder.
+- You may want to build the tools with different configure options, e.g.
+  build the tools for a Linux host and then build a
+  \ref install_canadian "Canadian cross" to run on a Windows host.
+- GCC does not support configuring anywhere in the source tree, so we'll
+  have to use a separate build folder outside the source tree, anyway.
+
+The instructions below assume that you have set up a directory tree like
+\verbatim
++--source
++--build
+\endverbatim
+in some place where you have write access, like in your home directory.
+
+After successful downloads and builds, the tree will be something like:
+\verbatim
++--source
+|   +--gcc-<version>
+|   +--binutils-<version>
+|   +--avr-libc-<version>
++-- build
+    +--gcc-<version>-avr
+    +--binutils-<version>-avr
+    +--avr-libc-<version>
+\endverbatim
+
+\subsection install_avr_binutils GNU Binutils for the AVR target
+\addindex installation, binutils
+
+The \b Binutils package provides all the low-level utilities
+needed in building and manipulating object files.  Once installed, your
+environment will have an
+AVR assembler (<tt>\ref using_avr_as "avr-as"</tt>),
+linker (<tt>\ref using_avr_ld "avr-ld"</tt>),
+and librarian (\c avr-ar and \c avr-ranlib).
+In addition, you get tools which extract data from object files
+(\c avr-objcopy), dissassemble object file information
+(\c avr-objdump), and strip information from object files
+(\c avr-strip).  Before we can build the C compiler, these tools need to
+be in place.
+
+Download and unpack the source files:
+
+\verbatim
+$ # in ./source
+$ tar xfj binutils-<version>.tar.bz2
+\endverbatim
+
+Replace \c &lt;version&gt; with the version of the package you downloaded.
+
+If you obtained a gzip compressed file (\c \.tar\.gz or \.tgz),
+use <tt>gunzip</tt> instead of <tt>bunzip2</tt>, or
+<tt>tar xfz <em>file</em>.tar.gz</tt>.
+
+The next step is to configure and build the tools. This is done by supplying
+arguments to the <tt>configure</tt> script that enable the AVR-specific
+options.  When you also want GDB, just drop <tt>\--disable-gdb</tt>.
+
+\verbatim
+$ # in ./build
+$ mkdir binutils-<version>-avr
+$ cd binutils-<version>-avr
+$ ../../source/binutils-<version>/configure --prefix=$PREFIX --target=avr \
+    --disable-nls --disable-sim --disable-gdb --disable-werror
+\endverbatim
+
+When <tt>configure</tt> is run, it generates a lot of messages while it
+determines what is available on your operating system. When it finishes, it
+will have created several <tt>Makefile</tt>s that are custom tailored to your
+platform and that are run with the \c make command.
+
+\verbatim
+$ make
+\endverbatim
+
+\note BSD users should note that the project's <tt>Makefile</tt> uses GNU
+make syntax. This means FreeBSD users may need to build the tools by
+using <tt>gmake</tt>.
+
+If the tools compiled cleanly, you're ready to install them. If you specified
+a destination that isn't owned by your account, you'll need <tt>root</tt>
+access to install them. To install:
+
+\verbatim
+$ make install
+\endverbatim
+
+You should now have the programs from Binutils installed into
+<tt>$PREFIX/bin</tt>.  Don't forget to \ref path "set your PATH" environment
+variable before going to build avr-gcc.
+To check that the correct assembler is found, run
+\verbatim
+$ avr-as --version
+\endverbatim
+which should print the <tt>&lt;version&gt;</tt> of the used Binutils sources.
+
+
+\subsection install_avr_gcc GCC for the AVR target
+\addindex installation, gcc
+
+\warning You \b must install
+\ref install_avr_binutils "avr-binutils" and make sure your
+\ref path "path is set" properly before installing avr-gcc.
+
+Before we can configure the compiler, we have to prepare the sources.
+GCC depends on some external host libraries, namely
+<a href="https://gmplib.org">GMP</a>,
+<a href="https://www.mpfr.org">MPFR</a>,
+<a href="https://www.multiprecision.org">MPC</a> and
+<a href="https://libisl.sourceforge.io">ISL</a>.
+You can build and install the appropriate versions of the required
+prerequisites by hand and provide their location by means
+of <tt>\--with-gmp=</tt> etc.
+Though in most situations it is easier to let GCC download and
+build these libraries as part of the configure and build process.
+All what's needed is an internet connection when
+running \c \./contrib/download_prerequisites:
+
+\verbatim
+$ # in ./source
+$ tar xfj gcc-<version>.tar.bz2
+$ cd gcc-<version>
+$ ./contrib/download_prerequisites
+
+$ # in ./build
+$ mkdir gcc-<version>-avr
+$ cd gcc-<version>-avr
+$ ../../source/gcc-<version>/configure --prefix=$PREFIX --target=avr --enable-languages=c,c++ \
+    --disable-nls --disable-libssp --disable-libcc1 \
+    --with-gnu-as --with-gnu-ld --with-dwarf2
+$ make
+$ make install # or make install-strip
+\endverbatim
+
+The GCC binaries may consume quite some disc space.  In most cases, you
+don't need the debug information in the compiler proper, and installing with
+\verbatim
+$ make install-strip
+\endverbatim
+can save you some space.
+
+
+\subsection install_avr_libc AVR-LibC
+\addindex installation, avr-libc
+
+\warning You \b must install
+\ref install_avr_binutils "avr-binutils",
+\ref install_avr_gcc "avr-gcc" and make sure your
+\ref path "path is set" properly before installing AVR-LibC.
+
+\note If you have obtained the latest AVR-LibC from \ref using_git "git",
+you will have to run the \c \./bootstrap script before using either of the
+build methods described below.
+
+To build and install AVR-LibC:
+
+\verbatim
+$ # in ./source
+$ tar xfz avr-libc-<version>.tar.gz
+
+$ # in ./build
+$ mkdir avr-libc-<version>
+$ cd avr-libc-<version>
+$ ../../source/avr-libc-<version>/configure --prefix=$PREFIX \
+    --build=x86_64-pc-linux-gnu --host=avr
+$ make
+$ make install
+\endverbatim
+
+Where the \c \--build platform can be guessed by running
+\verbatim
+$ ./source/avr-libc-<version>/config.guess
+\endverbatim
+
+
+\subsection install_avrprog AVRDUDE
+\addindex installation, avrprog
+\addindex installation, avrdude
+
+\note It has been ported to windows (via MinGW or cygwin), Linux and Solaris. Other Unix systems
+should be trivial to port to.
+
+<tt><b>avrdude</b></tt> is part of the FreeBSD ports system. To install it,
+simply do the following:
+
+\verbatim
+# cd /usr/ports/devel/avrdude
+# make install
+\endverbatim
+
+\note Installation into the default location usually requires root
+permissions.  However, running the program only requires access
+permissions to the appropriate \c ppi(4) device.
+
+Building and installing on other systems should use the \c configure system,
+as such:
+
+\verbatim
+$ gunzip -c avrdude-<version>.tar.gz | tar xf -
+$ cd avrdude-<version>
+$ mkdir obj-avr
+$ cd obj-avr
+$ ../configure --prefix=$PREFIX
+$ make
+$ make install
+\endverbatim
+
+
+\subsection install_simulavr SimulAVR
+\addindex installation, simulavr
+
+SimulAVR also uses the \c configure system, so to build and install:
+
+\verbatim
+$ gunzip -c simulavr-<version>.tar.gz | tar xf -
+$ cd simulavr-<version>
+$ mkdir obj-avr
+$ cd obj-avr
+$ ../configure --prefix=$PREFIX
+$ make
+$ make install
+\endverbatim
+
+\note You might want to have already installed
+\ref install_avr_binutils "avr-binutils",
+\ref install_avr_gcc "avr-gcc" and
+\ref install_avr_libc "AVR-LibC"
+if you want to have the test programs built in the simulavr source.
+
+
+
+\subsection install_avarice AVaRICE
+\addindex installation, avarice
+
+\note These install notes are not applicable to avarice-1.5 or older. You
+probably don't want to use anything that old anyways since there have been
+many improvements and bug fixes since the 1.5 release.
+
+AVaRICE also uses the \c configure system, so to build and install:
+
+\verbatim
+$ gunzip -c avarice-<version>.tar.gz | tar xf -
+$ cd avarice-<version>
+$ mkdir obj-avr
+$ cd obj-avr
+$ ../configure --prefix=$PREFIX
+$ make
+$ make install
+\endverbatim
+
+\note AVaRICE uses the BFD library for accessing various binary file formats.
+You may need to tell the configure script where to find the lib and headers
+for the link to work. This is usually done by invoking the configure script
+like this (Replace <tt>\<hdr_path\></tt> with the path to the \c bfd.h file on
+your system. Replace <tt>\<lib_path\></tt> with the path to \c libbfd.a on your
+system.):
+
+\verbatim
+$ CPPFLAGS=-I<hdr_path> LDFLAGS=-L<lib_path> ../configure --prefix=$PREFIX
+\endverbatim
+
+
+
+\section install_windows Building and Installing under Windows
+
+Building and installing the toolchain under Windows requires more effort because
+all of the tools required for building, and the programs themselves, are mainly
+designed for running under a POSIX environment such as Unix and Linux. Windows
+does not natively provide such an environment.
+
+There are two projects available that provide such an environment, Cygwin and
+MinGW. There are advantages and disadvantages to both. Cygwin provides a
+very complete POSIX environment that allows one to build many Linux based tools
+from source with very little or no source modifications. However, POSIX
+functionality is provided in the form of a DLL that is linked to the application.
+This DLL has to be redistributed with your application and there are issues if
+the Cygwin DLL already exists on the installation system and different versions
+of the DLL. On the other hand, MinGW can compile code as native Win32
+applications. However, this means that programs designed for Unix and Linux (i.e.
+that use POSIX functionality) will not compile as MinGW does not provide
+that POSIX layer for you. Therefore most programs that compile on both types of
+host systems, usually must provide some sort of abstraction layer to allow an
+application to be built cross-platform.
+
+MinGW does provide somewhat of a POSIX environment, called MSYS, that
+allows you to build Unix and Linux applications as they would normally do,
+with a \c configure
+step and a \c make step. Cygwin also provides such an environment. This means
+that building the AVR toolchain is very similar to how it is built in Linux,
+described above. The main differences are in what the PATH environment variable
+gets set to, pathname differences, and the tools that are required to build the
+projects under Windows. We'll take a look at the tools next.
+
+
+\subsection install_windows_tools Tools Required for Building the Toolchain for Windows
+
+These are the tools that are currently used to build an AVR tool chain.
+This list may change, either the version of the tools, or the tools themselves,
+as improvements are made.
+
+<dl>
+<dt>MinGW</dt>
+<dd>
+  Download the MinGW Automated Installer, 2013-10-04 (or later)
+  <https://sourceforge.net/projects/mingw/files>
+  - Run <tt>mingw-get-setup.exe</tt>
+  - In the installation wizard, keep the default values and press
+    the "Next" button for all installer pages except for the pages
+    explicitly listed below.
+  - In the installer page "Repository Catalogues", select the "Download latest
+    repository catalogues" radio button, and press the "Next" button
+  - In the installer page "License Agreement", select the "I accept
+    the agreement" radio button, and press the "Next" button
+  - In the installer page "Select Components", be sure to select these items:
+    - C compiler (default checked)
+    - C++ compiler
+    - Ada compiler
+    - MinGW Developer Toolkit (which includes "MSYS Basic System").
+  - Install.
+</dd>
+
+<dt>Install Cygwin</dt>
+<dd>
+  Install everything, all users, UNIX line endings. This will take a
+  \e long time.  A fat internet pipe is highly recommended.
+  It is also recommended that you download all to a directory first,
+  and then install from that directory to your machine.
+</dd>
+</dl>
+
+\note GMP, MPFR, MPC and ISL are required to build GCC. By far the easiest way
+to use them is by letting GCC download the sources locally by means of
+running the \c \./contrib/download_prewrequisites script from the
+GCC top source.  GCC will configure and build these libs during
+\c configure and \c make.
+
+\note Doxygen is required to build AVR-LibC documentation.
+- <b>Install Doxygen</b><br>
+    - Version 1.7.2
+    - <https://www.doxygen.nl>
+    - Download and install.
+
+\note NetPBM is required to build graphics in the AVR-LibC documentation.
+- <b>Install NetPBM</b><br>
+    - Version 10.27.0
+    - From the GNUWin32 project: <http://gnuwin32.sourceforge.net/packages.html>
+    - Download and install.
+
+\note fig2dev is required to build graphics in the AVR-LibC documentation.
+- <b>Install fig2dev</b><br>
+    - Version 3.2 patchlevel 5c
+    - From WinFig 4.62: <http://winfig.com/downloads>
+    - Download the zip file version of WinFig
+    - Unzip the download file and install fig2dev.exe in a location of your
+    choice, somewhere in the PATH.
+    - You may have to unzip and install related DLL files for fig2dev. In the
+    version above, you have to install QtCore4.dll and QtGui4.dll.
+
+\note MikTeX is required to build various documentation.
+- <b>Install MiKTeX</b><br>
+    - Version 2.9
+    - <https://miktex.org>
+    - Download and install.
+
+\note Ghostscript is required to build various documentation.
+- <b>Install Ghostscript</b><br>
+    - Version 9.00
+    - <https://www.ghostscript.com>
+    - Download and install.
+    - In the \\bin subdirectory of the installaion, copy gswin32c.exe to gs.exe.
+
+- Set the \c TEMP and \c TMP environment variables to <b><tt>c:\\\\temp</tt></b>
+  or to the
+  short filename version. This helps to avoid NTVDM errors during building.
+
+
+\subsection install_windows_building Building the Toolchain for Windows
+
+All directories in the PATH environment variable should be specified using
+their short filename (8.3) version. This will also help to avoid NTVDM errors
+during building. These short filenames can be specific to each machine.
+
+Build the tools below in MinGW/MSYS.
+
+- <b>Binutils</b><br>
+    - Open source code package and patch as necessary.
+    - Configure and build in a directory outside of the source code tree.
+    - Set PATH, in order:
+        - \<MikTex executables\>
+		- \<ghostscript executables\>
+        - /usr/local/bin
+        - /usr/bin
+        - /bin
+        - /mingw/bin
+        - c:/cygwin/bin
+        - \<install directory\>/bin
+    - Configure
+        \verbatim
+CFLAGS=-D__USE_MINGW_ACCESS  \
+../$archivedir/configure \
+    --prefix=$installdir \
+    --target=avr \
+    --disable-nls \
+    --enable-doc \
+    --datadir=$installdir/doc/binutils \
+    2>&1 | tee binutils-configure.log
+	\endverbatim
+    - Make
+        \verbatim
+make all html install install-html 2>&1 | tee binutils-make.log
+        \endverbatim
+    - Manually change documentation location.
+
+
+- <b>GCC</b><br>
+    - Open source code pacakge and patch as necessary.
+    - Configure and build in a directory outside of the source code tree.
+    - Set PATH, in order:
+        - \<MikTex executables\>
+		- \<ghostscript executables\>
+        - /usr/local/bin
+        - /usr/bin
+        - /bin
+        - /mingw/bin
+        - c:/cygwin/bin
+        - \<install directory\>/bin
+    - Configure
+        \verbatim
+LDFLAGS='-L /usr/local/lib -R /usr/local/lib' \
+CFLAGS='-D__USE_MINGW_ACCESS'  \
+../gcc-$version/configure \
+    --prefix=$installdir \
+    --target=$target \
+    --enable-languages=c,c++ \
+    --with-dwarf2 \
+    --enable-doc \
+    --with-docdir=$installdir/doc/$project \
+    --disable-shared \
+    --disable-libada \
+    --disable-libssp \
+    --disable-libcc1 \
+    --disable-nls \
+    2>&1 | tee $project-configure.log
+	\endverbatim
+    - Make
+        \verbatim
+make all html install 2>&1 | tee $package-make.log
+        \endverbatim
+
+
+- <b>AVR-LibC</b><br>
+    - Open source code package.
+    - Configure and build at the top of the source code tree.
+    - Set PATH, in order:
+        - /usr/local/bin
+        - /mingw/bin
+        - /bin
+        - \<MikTex executables\>
+        - \<install directory\>/bin
+        - \<Doxygen executables\>
+        - \<NetPBM executables\>
+        - \<fig2dev executable\>
+        - \<Ghostscript executables\>
+        - c:/cygwin/bin
+    - Configure
+        \verbatim
+./configure \
+    --host=avr \
+    --prefix=$installdir \
+    --enable-doc \
+    --disable-versioned-doc \
+    --enable-html-doc \
+    --enable-pdf-doc \
+    --enable-man-doc \
+    --mandir=$installdir/man \
+    --datadir=$installdir \
+    2>&1 | tee $package-configure.log
+    \endverbatim
+    - Make
+        \verbatim
+make all install 2>&1 | tee $package-make.log
+        \endverbatim
+    - Manually change location of man page documentation.
+    - Move the examples to the top level of the install tree.
+    - Convert line endings in examples to Windows line endings.
+    - Convert line endings in header files to Windows line endings.
+
+- <b>AVRDUDE</b><br>
+    - Open source code package.
+    - Configure and build at the top of the source code tree.
+    - Set PATH, in order:
+        - \<MikTex executables\>
+        - /usr/local/bin
+        - /usr/bin
+        - /bin
+        - /mingw/bin
+        - c:/cygwin/bin
+        - \<install directory\>/bin
+    - Set location of LibUSB headers and libraries
+        \verbatim
+export CPPFLAGS="-I../../libusb-win32-device-bin-$libusb_version/include"
+export CFLAGS="-I../../libusb-win32-device-bin-$libusb_version/include"
+export LDFLAGS="-L../../libusb-win32-device-bin-$libusb_version/lib/gcc"
+        \endverbatim
+    - Configure
+        \verbatim
+./configure \
+    --prefix=$installdir \
+    --datadir=$installdir \
+    --sysconfdir=$installdir/bin \
+    --enable-doc \
+    --disable-versioned-doc \
+    2>&1 | tee $package-configure.log
+        \endverbatim
+    - Make
+        \verbatim
+make -k all install 2>&1 | tee $package-make.log
+        \endverbatim
+    - Convert line endings in avrdude config file to Windows line endings.
+    - Delete backup copy of avrdude config file in install directory if exists.
+
+- <b>Insight/GDB</b><br>
+    - Open source code pacakge and patch as necessary.
+    - Configure and build in a directory outside of the source code tree.
+    - Set PATH, in order:
+        - \<MikTex executables\>
+        - /usr/local/bin
+        - /usr/bin
+        - /bin
+        - /mingw/bin
+        - c:/cygwin/bin
+        - \<install directory\>/bin
+    - Configure
+        \verbatim
+CFLAGS=-D__USE_MINGW_ACCESS  \
+LDFLAGS='-static' \
+../$archivedir/configure \
+    --prefix=$installdir \
+    --target=avr \
+     --with-gmp=/usr/local \
+     --with-mpfr=/usr/local \
+     --enable-doc \
+     2>&1 | tee insight-configure.log
+        \endverbatim
+    - Make
+        \verbatim
+make all install 2>&1 | tee $package-make.log
+        \endverbatim
+
+- <b>SRecord</b><br>
+    - Open source code package.
+    - Configure and build at the top of the source code tree.
+    - Set PATH, in order:
+        - \<MikTex executables\>
+        - /usr/local/bin
+        - /usr/bin
+        - /bin
+        - /mingw/bin
+        - c:/cygwin/bin
+        - \<install directory\>/bin
+    - Configure
+        \verbatim
+./configure \
+    --prefix=$installdir \
+    --infodir=$installdir/info \
+    --mandir=$installdir/man \
+    2>&1 | tee $package-configure.log
+        \endverbatim
+    - Make
+        \verbatim
+make all install 2>&1 | tee $package-make.log
+        \endverbatim
+
+
+Build the tools below in Cygwin.
+
+- <b>AVaRICE</b><br>
+    - Open source code package.
+    - Configure and build in a directory outside of the source code tree.
+    - Set PATH, in order:
+        - \<MikTex executables\>
+        - /usr/local/bin
+        - /usr/bin
+        - /bin
+        - \<install directory\>/bin
+    - Set location of LibUSB headers and libraries
+        \verbatim
+export CPPFLAGS=-I$startdir/libusb-win32-device-bin-$libusb_version/include
+export CFLAGS=-I$startdir/libusb-win32-device-bin-$libusb_version/include
+export LDFLAGS="-static -L$startdir/libusb-win32-device-bin-$libusb_version/lib/gcc "
+        \endverbatim
+    - Configure
+        \verbatim
+../$archivedir/configure \
+    --prefix=$installdir \
+    --datadir=$installdir/doc \
+    --mandir=$installdir/man \
+    --infodir=$installdir/info \
+    2>&1 | tee avarice-configure.log
+        \endverbatim
+    - Make
+        \verbatim
+make all install 2>&1 | tee avarice-make.log
+        \endverbatim
+
+- <b>SimulAVR</b><br>
+    - Open source code package.
+    - Configure and build in a directory outside of the source code tree.
+    - Set PATH, in order:
+        - \<MikTex executables\>
+        - /usr/local/bin
+        - /usr/bin
+        - /bin
+        - \<install directory\>/bin
+    - Configure
+        \verbatim
+export LDFLAGS="-static"
+../$archivedir/configure \
+    --prefix=$installdir \
+    --datadir=$installdir \
+    --disable-tests \
+    --disable-versioned-doc \
+    2>&1 | tee simulavr-configure.log
+        \endverbatim
+    - Make
+        \verbatim
+make -k all install 2>&1 | tee simulavr-make.log
+make pdf install-pdf 2>&1 | tee simulavr-pdf-make.log
+        \endverbatim
+
+\section install_canadian Canadian Cross Builds
+
+It is also possible to build avr-gcc for host Windows on a Linux build system.
+Suppose you have installed a
+<a href="https://www.mingw-w64.org/downloads"><tt>i686-w64-mingw32-gcc</tt></a>
+toolchain that can compile code to run on <tt>host=i686-w64-mingw32</tt>.
+Then the steps to build a toolchain for Windows are:
+
+-# Build and install the AVR toolchain for the Linux build machine
+as explained above.  Make sure that running the command
+\verbatim
+avr-gcc --version
+\endverbatim
+prints the compiler version according to the used GCC sources.
+The native AVR cross compiler is required during configure and to build
+the AVR target libraries like libgcc.
+Similarly, the version of the found AVR Binutils programs must
+match the version of the used Binutils sources.
+
+-# Determine the name of the \c \--build platform like \c x86_64-pc-linux-gnu,
+for example by running the \c config\.guess script as shipped with the
+top level GCC sources (and also with Binutils sources,
+and AVR-LibC sources after \c \./bootstrap).
+
+-# Use different build and install directories, e.g.
+<tt>./build/binutils-&lt;version&gt;-avr-mingw32</tt> to build Binutils
+and <tt>\--prefix=$PREFIX-mingw32</tt> as install path.
+
+-# Configure, build and install  <b>Binutils</b> and <b>GCC</b> like for
+the native build, but add the following configure options:
+\verbatim
+--build=x86_64-pc-linux-gnu --host=i686-w64-mingw32
+\endverbatim
+This assumes that the required host libraries like GMP are being built
+in one go with the compiler. This is accomplished by running the
+<tt>contrib/download_prerequisites</tt> script from the toplevel GCC sources,
+just like with the native build.
+
+-# There is no need to build <b>AVR-LibC</b> again because it is a pure target
+library. It can be installed by means of running
+\verbatim
+$ # in ./build/avr-libc-<version>
+$ make install prefix=$PREFIX-mingw32
+\endverbatim
+
+In order to "install" the toolchain on Windows, the canadian cross installed
+in <tt>$PREFIX-mingw32</tt> can be moved to the desired location on the
+Windows computer.  The compiler can be used by calling it by its absolute
+path, or by adding the <tt>$PREFIX-mingw32/bin</tt> directory to
+the \c PATH environment variable.
+
+\section using_git Using Git
+
+Most of the sources of the projects above are now managed with the
+<a href="https://git-scm.com">git</a>
+distributed version-control tools.  When you want to build from the
+newest development branch, you can clone the repo, like with
+\verbatim
+$ git clone <repo> [dirname]
+\endverbatim
+Replace <tt>&lt;repo&gt;</tt> with the URL of the Git repository, e.g.
+<tt>%https://github.com/avrdudes/avr-libc.git</tt> for AVR-LibC.
+Notice that when building AVR-LibC from the repo source, you have to run
+<tt>./bootstrap</tt> from the top level AVR-LibC sources prior to
+\c configure.
+
+Useful options for git clone:
+
+<dl>
+<dt><tt>dirname</tt></dt>
+<dd>
+  Specify an optional directory name for the cloned repository, like:
+  \verbatim
+$ git clone https://github.com/avrdudes/avr-libc.git ./source/avr-libc-main
+  \endverbatim
+  Without \c dirname, the name of the git file like \c avr-libc is used.
+</dd>
+
+<dt><tt>\--depth 1</tt></dt>
+<dd>
+  An ordinary clone will clone the complete repository with all its branches
+  and their history.  To speed up the cloning and save some disc space,
+  you can just clone the top of the history to some depth.
+</dd>
+
+<dt><tt>\--branch <em>branch</em></tt></dt>
+<dd>
+  The default branch is the head of the latest development, which is
+  \c master for GCC and Binutils, and \c main for AVR-LibC.
+
+  When you want a different ref, like GCC's <tt>releases/gcc-14</tt>
+  for the head of the GCC v14 branch, or <tt>releases/gcc-14.1.0</tt>
+  for the GCC v14.1 release tag, then you can specify that as
+  <tt><em>branch</em></tt>. To see the available refs, you can use
+  \verbatim
+$ git ls-remote <repo>
+  \endverbatim
+</dd>
+</dl>
+
+*/
