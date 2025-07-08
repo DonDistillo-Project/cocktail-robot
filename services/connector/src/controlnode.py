@@ -12,6 +12,7 @@ class ESPfIDs(bytes, Enum):
     doStep = b"\x01"
     finishRecipe = b"\x02"
     abortRecipe = b"\x03"
+    zeroScale = b"\x04"
 
 
 class PyfIDs(bytes, Enum):
@@ -42,18 +43,24 @@ class ESPControlNode(Node[bytes, ESPControlCallbackArgs], asyncio.Protocol):
         self.write_id(ESPfIDs.startRecipe)
         self.write_str(recipe_name)
 
-    def doStep(
+    def doIngredientStep(
         self, stable_offset: float, delta_target: float, instruction: str
+        #todo: remove stable_offset
     ) -> None:
         self.write_id(ESPfIDs.doStep)
         self.handle_input(pack("dd", stable_offset, delta_target))
         self.write_str(instruction)
+
+    #todo: implement doInstructionStep for instructions only
 
     def finishRecipe(self) -> None:
         self.write_id(ESPfIDs.finishRecipe)
 
     def abortRecipe(self) -> None:
         self.write_id(ESPfIDs.abortRecipe)
+
+    def zeroScale(self) -> None:
+        self.write_id(ESPfIDs.zeroScale)
 
     def connection_made(self, transport: asyncio.BaseTransport) -> None:
         self.own_transport = transport  # type: ignore

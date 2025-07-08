@@ -1,19 +1,24 @@
 import asyncio
 import logging
+from datetime import timedelta
 from enum import Enum
 from pathlib import Path
 from typing import Any, List
 
 import numpy as np
 from llm import LLM, LLMResponse
-from mixmode import Recipe, StartMixingArguments, StopMixingArguments
+from mixmode import Recipe, StartMixingArguments, StopMixingArguments, IngredientStep, InstructionStep
 from openai.types.responses import ResponseFunctionToolCall
 from pydantic import ValidationError
 from src.streamnode import BroadcastStream, FnNode, Node
+from src.controlnode import ESPControlNode
 
 ESP_HOST = "ESP32"
 ESP_ADDR = "192.168.71.16"
 ESP_PORT = 1234
+
+ESP_CTRL_ADDR = "192.168.71.16"
+ESP_CTRL_PORT = 2345
 
 STT_ADDR = "localhost"
 STT_PORT = 1234
@@ -22,6 +27,7 @@ STT_SPRT = 16000
 TTS_ADDR = "localhost"
 TTS_PORT = 2345
 TTS_SPRT = 22500
+
 
 OPENAI_MODEL = "gpt-4.1-mini"
 
@@ -97,9 +103,13 @@ class LLMNode(Node[str | MixingEvent, str]):
     mixing_event_queue: asyncio.Queue[MixingEvent]
     current_llm_future: asyncio.Future[LLMResponse] | None = None
 
-    def __init__(self, name: str, tts_node):
+    tts_node: BroadcastStream
+    esp_control_node: ESPControlNode
+
+    def __init__(self, name: str, tts_node: BroadcastStream, esp_control_node: ESPControlNode):
         super().__init__(name)
         self.tts_node = tts_node
+        self.esp_control_node = esp_control_node
 
         llm_recipe_search = LLM(
             RESOURCES_DIR / "RECIPE_SEARCH" / "system_prompt.md",
@@ -151,8 +161,16 @@ class LLMNode(Node[str | MixingEvent, str]):
         step = self.state.current_recipe.schritte[self.state.current_step]
 
         self.output(step.beschreibung)  # TTS
-        # TODO: setup scale
-        # TODO: show instruction on display
+        # TODO: setup scale (check)
+        self.esp_control_node.zeroScale()
+        # TODO: show instruction on display (redo controlnode and check)
+        if step.einheit == "cl":
+            step.menge = step.menge*10
+
+        if isinstance(step, IngredientStep):
+            self.esp_control_node.doIngredientStep(step.menge, step.beschreibung)
+        if isinstance(step, InstructionStep):
+            self.esp_control_node.doInstructionStep(step.beschreibung)
 
     def stop_mixing_mode(self, reason: str) -> None:
         if self.state.current_mode != Mode.MIXING:
@@ -292,7 +310,7 @@ class LLMNode(Node[str | MixingEvent, str]):
     async def await_sentence(self) -> None:
         sentence = await self.sentence_queue.get()
 
-        if self.tts_node.is_broadcasting(0.5):
+        if self.tts_node.is_broadcasting(timedelta(seconds=0.5)):
             for word in [word for word in self.stopwords if word not in self.current_blacklist]:
                 if word in sentence:
                     self.stop_talking()
@@ -358,6 +376,13 @@ async def async_main():
         ESP_PORT,
     )
 
+    on_esp_ctrl_lost = loop.create_future()
+    esp_ctrl_transport, esp_ctrl_stream = await loop.create_connection(
+        lambda: ESPControlNode("esp_control",on_esp_ctrl_lost),
+        ESP_CTRL_ADDR,
+        ESP_CTRL_PORT,
+    )
+
     logger.info("Creating RealtimeSTT connection")
     on_stt_conn_lost = loop.create_future()
     stt_transport, stt_stream = await loop.create_connection(
@@ -374,7 +399,7 @@ async def async_main():
         TTS_PORT,
     )
 
-    llm_node = LLMNode("LLM", tts_stream)
+    llm_node = LLMNode("LLM", tts_stream, esp_ctrl_stream)
 
     esp_stream.add_outgoing_node(stt_stream)
 
