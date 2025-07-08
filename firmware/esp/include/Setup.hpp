@@ -22,7 +22,10 @@ void setup()
 #ifdef SETUP_SPEAKER
     SetupSpeaker();
 #endif
-    #ifdef SETUP_AUDIO_STREAM
-        SetupAudioStreams();
-    #endif
+#ifdef SETUP_AUDIO_STREAM
+    SetupAudioStreams();
+#endif
+#ifdef SETUP_SCREEN
+    SetupScreen();
+#endif
 }

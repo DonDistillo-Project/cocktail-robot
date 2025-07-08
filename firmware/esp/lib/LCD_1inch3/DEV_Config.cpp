@@ -3,7 +3,7 @@
 * | Author      :   Waveshare team
 * | Function    :   Hardware underlying interface
 * | Info        :
-*                Used to shield the underlying layers of each master 
+*                Used to shield the underlying layers of each master
 *                and enhance portability
 *----------------
 * | This version:   V1.0
@@ -37,19 +37,17 @@ void GPIO_Init()
   pinMode(DEV_RST_PIN, OUTPUT);
   pinMode(DEV_DC_PIN, OUTPUT);
   pinMode(DEV_BL_PIN, OUTPUT);
-  analogWrite(DEV_BL_PIN,140);
- }
- void Config_Init()
- {
+  analogWrite(DEV_BL_PIN, 140);
+}
+void Config_Init(gpio_num_t clk_pin, gpio_num_t din_pin)
+{
 
   GPIO_Init();
-  
-  //Serial
-  Serial.begin(115200);
-  
-  //spi
+
+  // spi
   SPI.setDataMode(SPI_MODE3);
   SPI.setBitOrder(MSBFIRST);
   SPI.setClockDivider(SPI_CLOCK_DIV2);
-  SPI.begin();
-  }
+
+  SPI.begin(clk_pin, -1, din_pin, -1);
+}
