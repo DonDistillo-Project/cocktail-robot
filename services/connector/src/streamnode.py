@@ -1,6 +1,7 @@
 import asyncio
 import logging
 from typing import Any, Callable
+from datetime import datetime, timedelta
 
 DEFAULT_BUF_SIZE = 128
 
@@ -64,6 +65,8 @@ class FnNode[In, Out](Node[In, Out]):
 class BroadcastStream[In, Out](Node[In, Out], asyncio.Protocol):
     own_transport: asyncio.Transport
     on_conn_lost: asyncio.Future[bool]
+    last_broadcast: datetime = datetime.now()
+    stop_flag: bool = False
 
     input_converter: Callable[[In], bytes]
     output_converter: Callable[[bytes], Out]
@@ -76,6 +79,7 @@ class BroadcastStream[In, Out](Node[In, Out], asyncio.Protocol):
         out_converter: Callable[[bytes], Out] = lambda x: x,
     ) -> None:
         self.on_conn_lost = on_conn_lost
+        self.data_stopped_callbacks = []
         super().__init__(name)
 
     def connection_made(self, transport: asyncio.BaseTransport) -> None:
@@ -97,3 +101,11 @@ class BroadcastStream[In, Out](Node[In, Out], asyncio.Protocol):
         self._log(f"Received {len(data)} bytes from own transport")
         out_data = self.output_converter(data)
         self.output(out_data)
+
+    def is_broadcasting(self, delta: timedelta = timedelta(seconds=1)) -> bool:
+        return datetime.now() - self.last_broadcast > delta
+
+    def output(self, data: Out):
+        self.last_broadcast = datetime.now()
+        if not self.stop_flag:
+            super().output(data)

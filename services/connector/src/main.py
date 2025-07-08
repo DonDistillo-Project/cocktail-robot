@@ -5,7 +5,7 @@ from pathlib import Path
 from typing import Any, List
 
 import numpy as np
-from llm import LLM
+from llm import LLM, LLMResponse
 from mixmode import Recipe, StartMixingArguments, StopMixingArguments
 from openai.types.responses import ResponseFunctionToolCall
 from pydantic import ValidationError
@@ -95,9 +95,11 @@ class LLMNode(Node[str | MixingEvent, str]):
     state: State
     sentence_queue: asyncio.Queue[str]
     mixing_event_queue: asyncio.Queue[MixingEvent]
+    current_llm_future: asyncio.Future[LLMResponse] | None = None
 
-    def __init__(self, name: str):
+    def __init__(self, name: str, tts_node):
         super().__init__(name)
+        self.tts_node = tts_node
 
         llm_recipe_search = LLM(
             RESOURCES_DIR / "RECIPE_SEARCH" / "system_prompt.md",
@@ -115,6 +117,10 @@ class LLMNode(Node[str | MixingEvent, str]):
 
         self.sentence_queue = asyncio.Queue()
         self.mixing_event_queue = asyncio.Queue()
+        self.user_event_queue = asyncio.Queue()
+
+        self.stopwords = ["stop", "Stop", "Abort", "abort", "Aufhören", "aufhören"]
+        self.current_blacklist = []
 
         self.func_call_handler_map = {
             Mode.RECIPE_SEARCH: {
@@ -273,20 +279,43 @@ class LLMNode(Node[str | MixingEvent, str]):
     ) -> None:
         self._dispatch_function_calls_recursion(function_calls, max_attempts)
 
+    def stop_talking(self) -> None:
+        self.current_blacklist = []
+        self.tts_node.stop_flag = True
+        self.current_llm_future.cancel()
+
+    def output(self, data: str) -> None:
+        self.tts_node.stop_flag = False
+        self.current_blacklist.extend([word for word in data.split(" ") if word in self.stopwords])
+        super().output(data)
+
     async def await_sentence(self) -> None:
         sentence = await self.sentence_queue.get()
+
+        if self.tts_node.is_broadcasting(0.5):
+            for word in [word for word in self.stopwords if word not in self.current_blacklist]:
+                if word in sentence:
+                    self.stop_talking()
+                    return
+            return
 
         mode = self.state.current_mode
         self._log(f"Generating {mode.name} mode response for message '{sentence}'")
 
         llm = self.state.current_llm
         loop = asyncio.get_event_loop()
-        response = await loop.run_in_executor(
+        self.current_llm_future = loop.run_in_executor(
             None,  # default thread pool
             llm.generate_response,
             sentence,
             self.output,
         )
+        self.current_blacklist = []
+        try:
+            response = await self.current_llm_future
+        except asyncio.CancelledError:
+            self._log(f"Cancelled response because of user input", logging.WARNING)
+            return
 
         self.dispatch_function_calls(response.function_calls)
 
@@ -345,7 +374,7 @@ async def async_main():
         TTS_PORT,
     )
 
-    llm_node = LLMNode("LLM")
+    llm_node = LLMNode("LLM", tts_stream)
 
     esp_stream.add_outgoing_node(stt_stream)
 
