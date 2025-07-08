@@ -25,6 +25,9 @@ void setup()
 #ifdef SETUP_AUDIO_STREAM
     SetupAudioStreams();
 #endif
+#ifdef SETUP_CTRL_SOCK
+    SetupCtrlSock();
+#endif
 #ifdef SETUP_SCREEN
     SetupScreen();
 #endif
