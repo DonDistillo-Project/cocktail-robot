@@ -448,7 +448,7 @@ void Paint_DrawCircle(UWORD X_Center, UWORD Y_Center, UWORD Radius,
     Color_Foreground : Select the foreground color of the English character
 ******************************************************************************/
 void Paint_DrawChar(UWORD Xpoint, UWORD Ypoint, const char Acsii_Char,
-                    sFONT *Font, UWORD Color_Background, UWORD Color_Foreground)
+                    const sFONT *Font, UWORD Color_Background, UWORD Color_Foreground)
 {
 
   UWORD Page, Column;
@@ -507,7 +507,7 @@ void Paint_DrawChar(UWORD Xpoint, UWORD Ypoint, const char Acsii_Char,
     Color_Foreground : Select the foreground color of the English character
 ******************************************************************************/
 void Paint_DrawString_EN(UWORD Xstart, UWORD Ystart, const char *pString,
-                         sFONT *Font, UWORD Color_Background, UWORD Color_Foreground)
+                         const sFONT *Font, UWORD Color_Background, UWORD Color_Foreground)
 {
   UWORD Xpoint = Xstart;
   UWORD Ypoint = Ystart;
@@ -567,7 +567,7 @@ void Paint_DrawString_EN(UWORD Xstart, UWORD Ystart, const char *pString,
 ******************************************************************************/
 #define ARRAY_LEN 50
 void Paint_DrawNum(UWORD Xpoint, UWORD Ypoint, int32_t Nummber,
-                   sFONT *Font, UWORD Color_Background, UWORD Color_Foreground)
+                   const sFONT *Font, UWORD Color_Background, UWORD Color_Foreground)
 {
 
   int16_t Num_Bit = 0, Str_Bit = 0;
@@ -610,7 +610,7 @@ parameter:
     Color            : Select the background color of the English character
 ******************************************************************************/
 void Paint_DrawFloatNum(UWORD Xpoint, UWORD Ypoint, double Nummber, UBYTE Decimal_Point,
-                        sFONT *Font, UWORD Color_Background, UWORD Color_Foreground)
+                        const sFONT *Font, UWORD Color_Background, UWORD Color_Foreground)
 {
   char Str[ARRAY_LEN] = {0};
   dtostrf(Nummber, 0, Decimal_Point + 2, Str);
@@ -636,7 +636,7 @@ void Paint_DrawFloatNum(UWORD Xpoint, UWORD Ypoint, double Nummber, UBYTE Decima
     Font             ：A structure pointer that displays a character size
     Color            : Select the background color of the English character
 ******************************************************************************/
-void Paint_DrawTime(UWORD Xstart, UWORD Ystart, PAINT_TIME *pTime, sFONT *Font,
+void Paint_DrawTime(UWORD Xstart, UWORD Ystart, PAINT_TIME *pTime, const sFONT *Font,
                     UWORD Color_Background, UWORD Color_Foreground)
 {
   uint8_t value[10] = {'0', '1', '2', '3', '4', '5', '6', '7', '8', '9'};
