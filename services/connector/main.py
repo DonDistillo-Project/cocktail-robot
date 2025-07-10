@@ -6,18 +6,25 @@ from pathlib import Path
 from typing import Any, List
 
 import numpy as np
-from llm import LLM, LLMResponse
-from mixmode import Recipe, StartMixingArguments, StopMixingArguments, IngredientStep, InstructionStep
+from src.llm import LLM, LLMResponse
+from src.mixmode import (
+    Recipe,
+    StartMixingArguments,
+    StopMixingArguments,
+    IngredientStep,  # noqa: F401
+    InstructionStep,  # noqa: F401
+)
 from openai.types.responses import ResponseFunctionToolCall
 from pydantic import ValidationError
-from src.streamnode import BroadcastStream, FnNode, Node
-from src.controlnode import ESPControlNode
+from src.streamnode import BroadcastStream, FnNode, Node, SDStreamNode
+from src.controlnode import ESPControlCallbackArgs, ESPControlNode
+import sounddevice as sd
 
 ESP_HOST = "ESP32"
-ESP_ADDR = "192.168.71.16"
+ESP_ADDR = "10.14.174.16"
 ESP_PORT = 1234
 
-ESP_CTRL_ADDR = "192.168.71.16"
+ESP_CTRL_ADDR = ESP_ADDR
 ESP_CTRL_PORT = 2345
 
 STT_ADDR = "localhost"
@@ -31,12 +38,12 @@ TTS_SPRT = 22500
 
 OPENAI_MODEL = "gpt-4.1-mini"
 
-RESOURCES_DIR = Path(__file__).parent.parent / "resources" / "llm"
+RESOURCES_DIR = Path.cwd() / "resources" / "llm"
 
 
 logger = logging.getLogger(__name__)
 logging.basicConfig(
-    level=logging.INFO,
+    level=logging.DEBUG,
 )
 
 
@@ -106,7 +113,9 @@ class LLMNode(Node[str | MixingEvent, str]):
     tts_node: BroadcastStream
     esp_control_node: ESPControlNode
 
-    def __init__(self, name: str, tts_node: BroadcastStream, esp_control_node: ESPControlNode):
+    def __init__(
+        self, name: str, tts_node: BroadcastStream, esp_control_node: ESPControlNode
+    ):
         super().__init__(name)
         self.tts_node = tts_node
         self.esp_control_node = esp_control_node
@@ -142,7 +151,9 @@ class LLMNode(Node[str | MixingEvent, str]):
             },
         }
 
-    def input(self, data: str | MixingEvent, sender: Node[Any, str | MixingEvent]) -> None:
+    def input(
+        self, data: str | MixingEvent, sender: Node[Any, str | MixingEvent]
+    ) -> None:
         if sender.name == "STT" and isinstance(data, str):
             self._log("Received data from STT")
             self.sentence_queue.put_nowait(data)
@@ -163,19 +174,21 @@ class LLMNode(Node[str | MixingEvent, str]):
         self.output(step.beschreibung)  # TTS
         # TODO: setup scale (check)
         self.esp_control_node.zeroScale()
-        # TODO: show instruction on display (redo controlnode and check)
-        if step.einheit == "cl":
-            step.menge = step.menge*10
+        # # TODO: show instruction on display (redo controlnode and check)
+        # if step.einheit == "cl":
+        #     step.menge = step.menge*10
 
-        if isinstance(step, IngredientStep):
-            self.esp_control_node.doIngredientStep(step.menge, step.beschreibung)
-        if isinstance(step, InstructionStep):
-            self.esp_control_node.doInstructionStep(step.beschreibung)
+        # if isinstance(step, IngredientStep):
+        #     self.esp_control_node.doIngredientStep(step.menge, step.beschreibung)
+        # if isinstance(step, InstructionStep):
+        #     self.esp_control_node.doInstructionStep(step.beschreibung)
 
     def stop_mixing_mode(self, reason: str) -> None:
         if self.state.current_mode != Mode.MIXING:
             return  # nothing to be done
-        assert self.state.last_call_to_mixmode is not None  # always set when in Mode.MIXING
+        assert (
+            self.state.last_call_to_mixmode is not None
+        )  # always set when in Mode.MIXING
 
         self.output("DONE")
         self.state._llm_recipe_search.add_function_call_output(
@@ -258,7 +271,8 @@ class LLMNode(Node[str | MixingEvent, str]):
             )
             for fc in function_calls[1:]:
                 self.state.current_llm.add_function_call_output(
-                    "Skipped this function call. Please call only one function at a time.", fc
+                    "Skipped this function call. Please call only one function at a time.",
+                    fc,
                 )
 
         call = function_calls[0]
@@ -273,7 +287,9 @@ class LLMNode(Node[str | MixingEvent, str]):
             self.state.current_llm.add_function_call_output(msg, call)
 
             response = self.state.current_llm.generate_response()
-            self._dispatch_function_calls_recursion(response.function_calls, attempts_left)
+            self._dispatch_function_calls_recursion(
+                response.function_calls, attempts_left
+            )
 
             return
 
@@ -288,7 +304,9 @@ class LLMNode(Node[str | MixingEvent, str]):
                 return  # don't retry
 
             response = self.state.current_llm.generate_response()
-            self._dispatch_function_calls_recursion(response.function_calls, attempts_left)
+            self._dispatch_function_calls_recursion(
+                response.function_calls, attempts_left
+            )
         else:
             calling_llm.add_function_call_output(result, call)
 
@@ -300,18 +318,23 @@ class LLMNode(Node[str | MixingEvent, str]):
     def stop_talking(self) -> None:
         self.current_blacklist = []
         self.tts_node.stop_flag = True
-        self.current_llm_future.cancel()
+        if self.current_llm_future is not None:
+            self.current_llm_future.cancel()
 
     def output(self, data: str) -> None:
         self.tts_node.stop_flag = False
-        self.current_blacklist.extend([word for word in data.split(" ") if word in self.stopwords])
+        self.current_blacklist.extend(
+            [word for word in data.split(" ") if word in self.stopwords]
+        )
         super().output(data)
 
     async def await_sentence(self) -> None:
         sentence = await self.sentence_queue.get()
 
         if self.tts_node.is_broadcasting(timedelta(seconds=0.5)):
-            for word in [word for word in self.stopwords if word not in self.current_blacklist]:
+            for word in [
+                word for word in self.stopwords if word not in self.current_blacklist
+            ]:
                 if word in sentence:
                     self.stop_talking()
                     return
@@ -332,7 +355,7 @@ class LLMNode(Node[str | MixingEvent, str]):
         try:
             response = await self.current_llm_future
         except asyncio.CancelledError:
-            self._log(f"Cancelled response because of user input", logging.WARNING)
+            self._log("Cancelled response because of user input", logging.WARNING)
             return
 
         self.dispatch_function_calls(response.function_calls)
@@ -353,7 +376,9 @@ class LLMNode(Node[str | MixingEvent, str]):
 
             case MixingEvent.TARGET_WEIGHT_SURPASSED:
                 self.output("DU HAST ZU VIEL HINZUGEFÜGT (du bist dumm)")
-                self.state.current_llm.add_system_message("User added more than expected.")
+                self.state.current_llm.add_system_message(
+                    "User added more than expected."
+                )
 
     async def loop(self) -> None:
         async def continuous_task(coro_func):
@@ -376,9 +401,11 @@ async def async_main():
         ESP_PORT,
     )
 
+    esp_stream.add_outgoing_node(esp_stream)
+
     on_esp_ctrl_lost = loop.create_future()
     esp_ctrl_transport, esp_ctrl_stream = await loop.create_connection(
-        lambda: ESPControlNode("esp_control",on_esp_ctrl_lost),
+        lambda: ESPControlNode("esp_control", on_esp_ctrl_lost),
         ESP_CTRL_ADDR,
         ESP_CTRL_PORT,
     )
@@ -386,7 +413,9 @@ async def async_main():
     logger.info("Creating RealtimeSTT connection")
     on_stt_conn_lost = loop.create_future()
     stt_transport, stt_stream = await loop.create_connection(
-        lambda: BroadcastStream[bytes, str]("STT", on_stt_conn_lost, out_converter=bytes.decode),
+        lambda: BroadcastStream[bytes, str](
+            "STT", on_stt_conn_lost, out_converter=bytes.decode
+        ),
         STT_ADDR,
         STT_PORT,
     )
@@ -394,35 +423,56 @@ async def async_main():
     logger.info("Creating RealtimeTTS connection")
     on_tts_conn_lost = loop.create_future()
     tts_transport, tts_stream = await loop.create_connection(
-        lambda: BroadcastStream[str, bytes]("TTS", on_tts_conn_lost),
+        lambda: BroadcastStream[str, bytes](
+            "TTS", on_tts_conn_lost, in_converter=str.encode
+        ),
         TTS_ADDR,
         TTS_PORT,
     )
 
-    llm_node = LLMNode("LLM", tts_stream, esp_ctrl_stream)
+    # llm_node = LLMNode("LLM", tts_stream, esp_ctrl_stream)
+    # esp_stream.add_outgoing_node(sounddebug)
 
-    esp_stream.add_outgoing_node(stt_stream)
+    mic_gain = Gain(3.0, "Mic Gain")
+    esp_stream.add_outgoing_node(mic_gain)
+    mic_gain.add_outgoing_node(stt_stream)
 
-    stt_stream.add_outgoing_node(llm_node)
-    stt_stream.add_outgoing_node(
-        FnNode(
-            lambda data: logger.info(f"Received STT Result: {data}"),
-            name="Debug FN",
-        )
-    )
+    stt_stream.add_outgoing_node(tts_stream)
 
-    llm_node.add_outgoing_node(tts_stream)
+    tts_gain = Gain(0.5, "TTS Gain")
+    tts_stream.add_outgoing_node(tts_gain)
+    tts_gain.add_outgoing_node(esp_stream)
 
-    gain = Gain(0.5, "ESP:SpeakerGain")
-    tts_stream.add_outgoing_node(gain)
+    # tts_stream.handle_input("Hallo, das hier ist ein Test für den TTS / Lautsprecher.")
+    # stt_stream.add_outgoing_node(llm_node)
+    # stt_stream.add_outgoing_node(
+    #     FnNode(
+    #         lambda data: logger.info(f"Received STT Result: {data}"),
+    #         name="Debug FN",
+    #     )
+    # )
 
-    gain.add_outgoing_node(esp_stream)
+    # llm_node.add_outgoing_node(tts_stream)
+
+    # gain = Gain(0.5, "ESP:SpeakerGain")
+    # tts_stream.add_outgoing_node(gain)
+
+    x = FnNode[ESPControlCallbackArgs, None](fn=lambda x: print(*x), name="Print")
+
+    esp_ctrl_stream.add_outgoing_node(x)
+
+    await asyncio.sleep(10)
+    esp_ctrl_stream.startRecipe("Test-Rezept\n Zeile 2")
+    await asyncio.sleep(1)
+    esp_ctrl_stream.doIngredientStep(2.0, 3.0, "Test instruction")
+
+    # # gain.add_outgoing_node(esp_stream)
 
     pending = [
-        on_esp_conn_lost,
-        on_stt_conn_lost,
-        on_tts_conn_lost,
-        asyncio.ensure_future(llm_node.loop()),
+        #     # on_esp_conn_lost,
+        #     on_stt_conn_lost,
+        #     on_tts_conn_lost,
+        #     asyncio.ensure_future(llm_node.loop()),
         asyncio.ensure_future(asyncio.to_thread(input, "Press ENTER to exit\n")),
     ]
 
@@ -431,8 +481,8 @@ async def async_main():
         logger.warning(f"Finished Task(s) {[d.get_name() for d in done]}")
 
         esp_transport.close()
-        stt_transport.close()
-        tts_transport.close()
+        # stt_transport.close()
+        # tts_transport.close()
 
 
 if __name__ == "__main__":

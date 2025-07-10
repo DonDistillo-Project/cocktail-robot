@@ -2,6 +2,7 @@ import asyncio
 import logging
 from typing import Any, Callable
 from datetime import datetime, timedelta
+import sounddevice as sd
 
 DEFAULT_BUF_SIZE = 128
 
@@ -56,7 +57,7 @@ class FnNode[In, Out](Node[In, Out]):
     def __init__(self, fn: Callable[[In], None], *args, **kwargs) -> None:
         self.fn = fn
 
-        super().__init__(*args, **kwargs)
+        super().__init__(kwargs["name"])
 
     def handle_input(self, data: In) -> None:
         self.fn(data)
@@ -80,6 +81,8 @@ class BroadcastStream[In, Out](Node[In, Out], asyncio.Protocol):
     ) -> None:
         self.on_conn_lost = on_conn_lost
         self.data_stopped_callbacks = []
+        self.input_converter = in_converter
+        self.output_converter = out_converter
         super().__init__(name)
 
     def connection_made(self, transport: asyncio.BaseTransport) -> None:
@@ -109,3 +112,38 @@ class BroadcastStream[In, Out](Node[In, Out], asyncio.Protocol):
         self.last_broadcast = datetime.now()
         if not self.stop_flag:
             super().output(data)
+
+
+class SDStreamNode(Node):
+    stream: sd.RawStream
+
+    inqueue: asyncio.Queue[int]
+    outqueue: asyncio.Queue[int]
+
+    def __init__(self, name: str) -> None:
+        self.inqueue = asyncio.Queue()
+        self.outqueue = asyncio.Queue()
+
+        super().__init__(name)
+
+    def data_received(self, data: bytes) -> None:
+        logger.info(f"RECEIVED {len(data)}")
+        for byte in data:
+            self.outqueue.put_nowait(byte)
+
+    def stream_callback(
+        self, indata: bytes, outdata: bytes, frames: int, time: Any, status: Any
+    ) -> None:
+        try:
+            indata[:] = bytes(  # type: ignore
+                [self.inqueue.get_nowait() for _ in range(len(indata))]
+            )
+        except asyncio.QueueEmpty:
+            logger.debug("Stream inqueue empty")
+
+        try:
+            outdata[:] = bytes(  # type: ignore
+                [self.outqueue.get_nowait() for _ in range(len(outdata))]
+            )
+        except asyncio.QueueEmpty:
+            logger.debug("Stream outqueue empty")

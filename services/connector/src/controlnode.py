@@ -33,7 +33,7 @@ class ESPControlNode(Node[bytes, ESPControlCallbackArgs], asyncio.Protocol):
         super().__init__(name)
 
     def write_id(self, id: ESPfIDs) -> None:
-        self.handle_input(id)
+        self.handle_input(id.value)
 
     def write_str(self, s: str) -> None:
         self.handle_input(len(s).to_bytes())
@@ -44,14 +44,17 @@ class ESPControlNode(Node[bytes, ESPControlCallbackArgs], asyncio.Protocol):
         self.write_str(recipe_name)
 
     def doIngredientStep(
-        self, stable_offset: float, delta_target: float, instruction: str
-        #todo: remove stable_offset
+        self,
+        stable_offset: float,
+        delta_target: float,
+        instruction: str,
+        # todo: remove stable_offset
     ) -> None:
         self.write_id(ESPfIDs.doStep)
         self.handle_input(pack("dd", stable_offset, delta_target))
         self.write_str(instruction)
 
-    #todo: implement doInstructionStep for instructions only
+    # todo: implement doInstructionStep for instructions only
 
     def finishRecipe(self) -> None:
         self.write_id(ESPfIDs.finishRecipe)
@@ -79,7 +82,7 @@ class ESPControlNode(Node[bytes, ESPControlCallbackArgs], asyncio.Protocol):
         return asyncio.create_task(wait_conn_lost(self), name=self.name)
 
     def handle_input(self, data: bytes) -> None:
-        self._log(f"Writing {len(data)} bytes to own transport")
+        self._log(f"Writing {len(data)} bytes ({data}) to own transport")
         self.own_transport.write(data)
 
     def data_received(self, data: bytes) -> None:

@@ -14,7 +14,10 @@ class LLMResponse(NamedTuple):
 
 class LLM:
     def __init__(
-        self, system_prompt_path: Path, tools_json_path: Path, model: str = "gpt-4.1-mini"
+        self,
+        system_prompt_path: Path,
+        tools_json_path: Path,
+        model: str = "gpt-4.1-mini",
     ):
         self.client = OpenAI()
         self.model = model
@@ -33,6 +36,7 @@ class LLM:
         ]
 
         with open(tools_json_path, "r", encoding="utf-8") as f:
+            print(tools_json_path)
             self.tools = json.load(f)
 
     def generate_response(
@@ -94,7 +98,9 @@ class LLM:
         finally:
             self.lock.release()
 
-    def add_function_call_output(self, output: str, function_call: ResponseFunctionToolCall):
+    def add_function_call_output(
+        self, output: str, function_call: ResponseFunctionToolCall
+    ):
         """
         Appends the result of the function to the history.
         Does NOT generate a response.
