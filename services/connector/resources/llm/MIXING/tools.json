@@ -1,1 +1,30 @@
-TODO
+[
+    {
+        "type": "function",
+        "name": "stop_mixing_mode",
+        "description": "Beendet den Mixmodus und wechselt zurück zum RECIPE_SEARCH-Modus. Wird aufgerufen wenn der Nutzer abbricht, ein Fehler auftritt, oder das Rezept erfolgreich abgeschlossen wurde.",
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "reason_and_summary": {
+                    "type": "string",
+                    "description": "Grund für das Beenden des Mixmodus und eine kurze Zusammenfassung des Geschehenen, z.B. 'Cocktail erfolgreich zubereitet' oder 'Nutzer hat abgebrochen' oder 'Fehler bei Schritt 3 aufgetreten'."
+                }
+            },
+            "required": ["reason_and_summary"],
+            "additionalProperties": false
+        },
+        "strict": false
+    },
+    {
+        "type": "function", 
+        "name": "next_recipe_step",
+        "description": "Initiiert den nächsten Schritt des aktuellen Cocktailrezepts. Wird aufgerufen um das System anzuweisen, mit dem nächsten Zubereitungsschritt fortzufahren.",
+        "parameters": {
+            "type": "object",
+            "properties": {},
+            "additionalProperties": false
+        },
+        "strict": false
+    }
+]
