@@ -20,7 +20,7 @@ void ctrl_error()
 {
     printf("Notifying main task of CTRL exit\n");
     xTaskNotifyGive(ctrl_main_task);
-    vTaskDelete(xTaskGetCurrentTaskHandle());
+    vTaskSuspend(NULL);
 }
 
 typedef enum InfIDs
@@ -91,6 +91,7 @@ int sendByte(char byte)
 void runStep(double stable_offset, double delta_target, unsigned char instruction_len, char *instruction)
 {
     render_instruction(instruction_len, instruction);
+    render_scale(stable_offset, delta_target);
 }
 
 void runRecipe(unsigned char recipe_name_len, char *recipe_name)
@@ -102,7 +103,7 @@ void runRecipe(unsigned char recipe_name_len, char *recipe_name)
         .revents = 0,
     };
 
-    char fID = -1;
+    unsigned char fID = 254;
     double current_scale_weight;
 
     while (1)
@@ -124,6 +125,7 @@ void runRecipe(unsigned char recipe_name_len, char *recipe_name)
                 switch (fID)
                 {
                 case InfIDs::startRecipe:
+                {
                     printf("Can not start new recipe while currently running recipe\n");
                     return ctrl_error();
                     break;
@@ -165,27 +167,37 @@ void runRecipe(unsigned char recipe_name_len, char *recipe_name)
                     runStep(args.stable_offset, args.delta_target, args.instruction_len, args.instruction);
 
                     break;
+                }
                 case InfIDs::finishRecipe:
+                {
                     printf("Finishing recipe\n");
                     char msg[] = "Recipe Completed!";
                     render_success(sizeof(msg), msg);
 
                     // TODO: Do something
                     return;
+                }
                 case InfIDs::abortRecipe:
+                {
                     printf("Aborting recipe\n");
                     char msg[] = "Recipe Aborted!";
                     render_error(sizeof(msg), msg);
 
                     // TODO: Do something
                     return;
+                }
                 case InfIDs::zeroScale:
+                {
                     printf("Zeroing scale\n");
+
                     // TODO: Do something
                     return;
+                }
                 default:
+                {
                     printf("Error: Unrecognized fID: %d\n", fID);
                     return ctrl_error();
+                }
                 }
             }
 
@@ -197,6 +209,8 @@ void runRecipe(unsigned char recipe_name_len, char *recipe_name)
                     return ctrl_error();
                 }
                 current_scale_weight = getScaleWeight();
+                printf("Sending Scale val: %f\n", current_scale_weight);
+                render_scale(current_scale_weight - 13.0, 63.0);
                 if (sendAll(&current_scale_weight, sizeof(double)) != sizeof(double))
                 {
                     printf("Error while sending notifyWeight data\n");
@@ -208,13 +222,11 @@ void runRecipe(unsigned char recipe_name_len, char *recipe_name)
     }
 }
 
-void ctrl_loop(void *client_socketp)
+void ctrl_loop(void *_)
 {
     size_t bytes_left = 0;
     ssize_t bytes_transferred = 0;
     size_t offset = 0;
-
-    ctrl_client_sock = *((int *)(client_socketp));
 
     unsigned char recipe_name_len = 0;
     char recipe_name[256];
@@ -222,12 +234,13 @@ void ctrl_loop(void *client_socketp)
 
     while (1)
     {
+        int error = -1;
         char fID = -1;
 
         // Wait for startRecipe fID, guaranteed to read one byte if there are no errors!
-        if (receiveByte(&fID) != 1)
+        if ((error = receiveByte(&fID)) != 1)
         {
-            printf("Error while receiving initial fID: %d\n", fID);
+            printf("Error while receiving initial fID: %d - %d\n", error, errno);
             return ctrl_error();
         }
 
@@ -259,9 +272,8 @@ int ctrlSockAccept()
 {
     sockaddr client_addr;
     size_t client_addr_len;
-    int client_socket;
 
-    if ((client_socket = accept(ctrl_sock, (struct sockaddr *)&client_addr, &client_addr_len)) < 0)
+    if ((ctrl_client_sock = accept(ctrl_sock, (struct sockaddr *)&client_addr, &client_addr_len)) < 0)
     {
         perror("accept");
         exit(EXIT_FAILURE);
@@ -271,8 +283,8 @@ int ctrlSockAccept()
         ctrl_loop,
         "ctrl_loop",
         CTRL_STACKSIZE,
-        (void *)(&client_socket),
-        CTRL_SEND_PRIO,
+        NULL,
+        CTRL_PRIO,
         &ctrl_loop_handle);
 
     ctrl_main_task = xTaskGetCurrentTaskHandle();

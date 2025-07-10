@@ -179,7 +179,7 @@ const unsigned int RecipeLines = 2;
 const Box RecipeBox = {.left = RecipeHeaderBox.left, .top = RecipeHeaderBox.bottom, .right = RecipeHeaderBox.right, RecipeHeaderBox.bottom + RecipeLines * RecipeFont->Height};
 
 const sFONT *InstructionFont = &Font16;
-const unsigned int InstructionLines = 7;
+const unsigned int InstructionLines = 8;
 const unsigned int InstructionBoxBorderSize = 2;
 const Box InstructionBorderBox = {.left = RecipeBox.left, .top = RecipeBox.bottom + InstructionBoxBorderSize, .right = RecipeBox.right, .bottom = RecipeBox.bottom + InstructionLines * InstructionFont->Height + 2 * InstructionBoxBorderSize};
 const Box InstructionBox = shrink_box(InstructionBorderBox, InstructionBoxBorderSize);

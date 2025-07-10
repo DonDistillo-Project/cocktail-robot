@@ -15,11 +15,14 @@ TaskHandle_t write_handle = NULL;
 TaskHandle_t read_handle = NULL;
 TaskHandle_t main_task = NULL;
 
-void sock2speaker(void *client_socketp)
+int write_sock;
+int read_sock;
+
+void sock2speaker(void *_)
 {
     Serial.printf("started write task \n");
 
-    Serial.flush(); // ACHTUNG: LOAD BEARING FLUSH ???
+    // Serial.flush(); // ACHTUNG: LOAD BEARING FLUSH ???
 
     ssize_t bytes_left = 0;
     size_t bytes_written = 0;
@@ -28,14 +31,12 @@ void sock2speaker(void *client_socketp)
 
     size_t offset = 0;
 
-    int client_socket = *((int *)(client_socketp));
-
     while (1)
     {
-        bytes_left = read(client_socket, speaker_buf, sizeof(speaker_buf));
+        bytes_left = read(write_sock, speaker_buf, sizeof(speaker_buf));
         if (bytes_left <= 0)
         {
-            printf("Read failed: %i - Connection closed \n", bytes_left);
+            printf("Read failed: %i: %d Connection closed \n", bytes_left, errno);
             i2s_zero_dma_buffer(SPEAKER_I2S_NUM);
             xTaskNotifyGive(main_task);
 
@@ -44,7 +45,7 @@ void sock2speaker(void *client_socketp)
             return;
         }
         while (bytes_left % 2 != 0)
-            bytes_left += read(client_socket, ((int8_t *)speaker_buf) + bytes_left, 1);
+            bytes_left += read(write_sock, ((int8_t *)speaker_buf) + bytes_left, 1);
         offset = 0;
         while (bytes_left > 0)
         {
@@ -55,7 +56,7 @@ void sock2speaker(void *client_socketp)
     }
 }
 
-void mic2sock(void *client_socketf)
+void mic2sock(void *_)
 {
     Serial.printf("started read task \n");
     Serial.flush();
@@ -67,8 +68,6 @@ void mic2sock(void *client_socketf)
 
     size_t offset = 0;
 
-    int client_socket = *((int *)(client_socketf));
-
     while (1)
     {
         i2s_read(MIC_I2S_NUM, &buf, sizeof(buf), &bytes_left, portMAX_DELAY);
@@ -76,7 +75,7 @@ void mic2sock(void *client_socketf)
         size_t offset = 0;
         while (bytes_left > 0)
         {
-            bytes_written = write(client_socket, ((int8_t *)buf) + offset, bytes_left);
+            bytes_written = write(read_sock, ((int8_t *)buf) + offset, bytes_left);
             if (bytes_written <= 0)
             {
                 printf("Write failed: %i - Connection closed \n", bytes_written);
@@ -107,11 +106,14 @@ int audioStreamAccept()
     }
     printf("connected\n");
 
+    read_sock = client_socket;
+    write_sock = client_socket;
+
     xTaskCreate(
         sock2speaker,
         "sock2speaker",
         STREAMS_STACKSIZE,
-        (void *)(&client_socket),
+        NULL,
         STREAMS_SPEAKER_PRIO,
         &write_handle);
 
@@ -119,7 +121,7 @@ int audioStreamAccept()
         mic2sock,
         "mic2sock",
         STREAMS_STACKSIZE,
-        &client_socket,
+        NULL,
         STREAMS_MIC_PRIO,
         &read_handle);
 
