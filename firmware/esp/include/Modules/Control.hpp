@@ -4,6 +4,7 @@
 
 #include "ModuleSettings.hpp"
 #include "Modules/Scale.hpp"
+#include "Modules/Screen.hpp"
 
 #include "Modules/WiFi.hpp"
 #include "lwip/sockets.h"
@@ -89,12 +90,12 @@ int sendByte(char byte)
 
 void runStep(double stable_offset, double delta_target, unsigned char instruction_len, char *instruction)
 {
-    // Currently ignored.
+    render_instruction(instruction_len, instruction);
 }
 
 void runRecipe(unsigned char recipe_name_len, char *recipe_name)
 {
-
+    render_recipe(recipe_name_len, recipe_name);
     struct pollfd pfd{
         .fd = ctrl_client_sock,
         .events = POLLIN | POLLOUT,
@@ -166,13 +167,22 @@ void runRecipe(unsigned char recipe_name_len, char *recipe_name)
                     break;
                 case InfIDs::finishRecipe:
                     printf("Finishing recipe\n");
+                    char msg[] = "Recipe Completed!";
+                    render_success(sizeof(msg), msg);
+
                     // TODO: Do something
                     return;
                 case InfIDs::abortRecipe:
                     printf("Aborting recipe\n");
+                    char msg[] = "Recipe Aborted!";
+                    render_error(sizeof(msg), msg);
+
                     // TODO: Do something
                     return;
-
+                case InfIDs::zeroScale:
+                    printf("Zeroing scale\n");
+                    // TODO: Do something
+                    return;
                 default:
                     printf("Error: Unrecognized fID: %d\n", fID);
                     return ctrl_error();
