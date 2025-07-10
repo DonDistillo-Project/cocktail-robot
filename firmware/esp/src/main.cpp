@@ -1,25 +1,38 @@
 #include "Setup.hpp"
-#include "GUI_Paint.h"
-#include <image.h>
+#include "esp_random.h"
+#define size(x) (unsigned char)sizeof(x), x
+
+void r(void *_)
+{
+    vTaskDelay(1000);
+
+    const size_t steps = 10;
+    while (1)
+    {
+        render_instruction(size("Dies\nIst\nEin\nTest\nLelelelsllel"));
+        vTaskDelay(3000 / portTICK_PERIOD_MS);
+
+        render_instruction(size("Test1234"));
+        vTaskDelay(3000 / portTICK_PERIOD_MS);
+        render_instruction(size("Hallo, das hier ist Test Nr. 3"));
+        vTaskDelay(3000 / portTICK_PERIOD_MS);
+        render_instruction(size("iojo123423423fsdfsdfijhiuhiuhiuhiojo123423423fsdfsdfijhiuhiuhiuhiojo123423423fsdfsdfijhiuhiuhiuh"));
+        vTaskDelay(3000 / portTICK_PERIOD_MS);
+        float x = (float)esp_random() / (float)UINT32_MAX * 100.0;
+        for (float i = 0.0; i < x; i += x / steps)
+        {
+            render_scale(i, 0.8 * x);
+            vTaskDelay(300);
+        }
+    }
+}
+
 void loop()
 {
-    Paint_NewImage(LCD_WIDTH, LCD_HEIGHT, 0, WHITE);
-    Paint_Clear(WHITE);
-    Paint_SetRotate(180);
-    Paint_DrawString_EN(30, 10, "123", &Font24, YELLOW, RED);
-    Paint_DrawString_EN(30, 34, "ABC", &Font24, BLUE, CYAN);
-    // Paint_DrawFloatNum (30, 58 ,987.654321,3, &Font20,  WHITE,  BLACK);
-    // Paint_DrawString_CN(50, 180, "微雪电子", &Font24CN, WHITE, RED);
+    render_recipe(size("Test\nRezept"));
+    vTaskDelay(4000 / portTICK_PERIOD_MS);
+    TaskHandle_t r_task;
+    xTaskCreate(r, "Soos", SCREEN_RENDER_STACKSIZE, NULL, 50, &r_task);
 
-    Paint_DrawRectangle(125, 10, 225, 58, RED, DOT_PIXEL_2X2, DRAW_FILL_EMPTY);
-    Paint_DrawLine(125, 10, 225, 58, MAGENTA, DOT_PIXEL_2X2, LINE_STYLE_SOLID);
-    Paint_DrawLine(225, 10, 125, 58, MAGENTA, DOT_PIXEL_2X2, LINE_STYLE_SOLID);
-    Paint_DrawCircle(150, 100, 25, BLUE, DOT_PIXEL_2X2, DRAW_FILL_EMPTY);
-    Paint_DrawCircle(180, 100, 25, BLACK, DOT_PIXEL_2X2, DRAW_FILL_EMPTY);
-    Paint_DrawCircle(210, 100, 25, RED, DOT_PIXEL_2X2, DRAW_FILL_EMPTY);
-    Paint_DrawCircle(165, 125, 25, YELLOW, DOT_PIXEL_2X2, DRAW_FILL_EMPTY);
-    Paint_DrawCircle(195, 125, 25, GREEN, DOT_PIXEL_2X2, DRAW_FILL_EMPTY);
-
-    Paint_DrawImage(gImage_70X70, 20, 80, 70, 70);
-    sleep(5);
+    vTaskSuspend(NULL);
 }
