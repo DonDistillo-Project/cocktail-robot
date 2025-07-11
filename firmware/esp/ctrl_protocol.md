@@ -16,6 +16,11 @@
 | 3          | abortRecipe()                                                             |
 |            |                                                                           |
 
+### doStep Details
+If `delta_target` is not `NAN`, enable scale rendering; Else: Disable scale rendering
+If `stable_offset` is `NAN`, use current scale value as offset
+
+
 ## ESP -> PY
 | *char* fID | fName                       |
 | ---------- | --------------------------- |

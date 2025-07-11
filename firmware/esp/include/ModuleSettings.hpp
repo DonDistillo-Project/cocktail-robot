@@ -1,5 +1,9 @@
 #pragma once
 
+/* Common Macros */
+#define STR_AND_LEN(str) (unsigned char)sizeof(str), str
+
+/* Module Config */
 #define FS_REFORMAT_ON_FAIL true
 
 #define WIFI_FS_DIR "/wifi/"
@@ -51,6 +55,7 @@
 #define SCREEN_BL_PIN GPIO_NUM_9   // grau
 #define SCREEN_RENDER_STACKSIZE 10000
 
+/* Task Prio Config */
 #define STREAMS_SPEAKER_PRIO 11
 #define STREAMS_MIC_PRIO 10
 #define CTRL_PRIO 5

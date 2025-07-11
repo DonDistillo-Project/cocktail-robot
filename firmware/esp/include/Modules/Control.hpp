@@ -16,6 +16,9 @@ int ctrl_client_sock;
 TaskHandle_t ctrl_loop_handle = NULL;
 TaskHandle_t ctrl_main_task = NULL;
 
+bool scale_enabled = false;
+double scale_target = -1.0;
+
 void ctrl_error()
 {
     printf("Notifying main task of CTRL exit\n");
@@ -88,15 +91,51 @@ int sendByte(char byte)
     return lwip_write(ctrl_client_sock, &byte, 1);
 }
 
-void runStep(double stable_offset, double delta_target, unsigned char instruction_len, char *instruction)
+void _zeroScale()
 {
-    render_instruction(instruction_len, instruction);
-    render_scale(stable_offset, delta_target);
+    setScaleOffset();
 }
 
-void runRecipe(unsigned char recipe_name_len, char *recipe_name)
+void _doStep(double stable_offset, double delta_target, unsigned char instruction_len, char *instruction)
 {
+    if (delta_target != NAN)
+    {
+        scale_enabled = true;
+        scale_target = delta_target;
+
+        if (stable_offset != NAN)
+        {
+            scale_offset = stable_offset; // Set scale offset
+        }
+        else
+        {
+            _zeroScale();
+        }
+    }
+    else
+    {
+        scale_enabled = false;
+        render_scale(0, 0);
+    }
+
+    render_instruction(instruction_len, instruction);
+}
+
+void _finishRecipe()
+{
+    render_success(STR_AND_LEN("Recipe finished"));
+}
+void _abortRecipe()
+{
+    render_error(STR_AND_LEN("Recipe aborted"));
+}
+
+void _startRecipe(unsigned char recipe_name_len, char *recipe_name)
+{
+    scale_enabled = false;
+
     render_recipe(recipe_name_len, recipe_name);
+
     struct pollfd pfd{
         .fd = ctrl_client_sock,
         .events = POLLIN | POLLOUT,
@@ -105,7 +144,6 @@ void runRecipe(unsigned char recipe_name_len, char *recipe_name)
 
     unsigned char fID = 254;
     double current_scale_weight;
-
     while (1)
     {
         pfd.revents = 0;
@@ -164,33 +202,27 @@ void runRecipe(unsigned char recipe_name_len, char *recipe_name)
                         return ctrl_error();
                     }
 
-                    runStep(args.stable_offset, args.delta_target, args.instruction_len, args.instruction);
+                    _doStep(args.stable_offset, args.delta_target, args.instruction_len, args.instruction);
 
                     break;
                 }
                 case InfIDs::finishRecipe:
                 {
                     printf("Finishing recipe\n");
-                    char msg[] = "Recipe Completed!";
-                    render_success(sizeof(msg), msg);
-
-                    // TODO: Do something
+                    _finishRecipe();
                     return;
                 }
                 case InfIDs::abortRecipe:
                 {
                     printf("Aborting recipe\n");
-                    char msg[] = "Recipe Aborted!";
-                    render_error(sizeof(msg), msg);
-
-                    // TODO: Do something
+                    _abortRecipe();
                     return;
                 }
                 case InfIDs::zeroScale:
                 {
                     printf("Zeroing scale\n");
 
-                    // TODO: Do something
+                    _zeroScale();
                     return;
                 }
                 default:
@@ -210,11 +242,16 @@ void runRecipe(unsigned char recipe_name_len, char *recipe_name)
                 }
                 current_scale_weight = getScaleWeight();
                 printf("Sending Scale val: %f\n", current_scale_weight);
-                render_scale(current_scale_weight - 13.0, 63.0);
+
                 if (sendAll(&current_scale_weight, sizeof(double)) != sizeof(double))
                 {
                     printf("Error while sending notifyWeight data\n");
                     return ctrl_error();
+                }
+
+                if (scale_enabled)
+                {
+                    render_scale(current_scale_weight, scale_target);
                 }
             }
         }
@@ -264,7 +301,7 @@ void ctrl_loop(void *_)
             return ctrl_error();
         }
 
-        runRecipe(recipe_name_len, recipe_name);
+        _startRecipe(recipe_name_len, recipe_name);
     }
 }
 

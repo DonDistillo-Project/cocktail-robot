@@ -255,7 +255,7 @@ unsigned int last_instruction_height = 0;
 xQueueHandle render_queue;
 xTaskHandle render_task;
 
-void _render_base_layout()
+void _render_recipe_layout()
 {
     if (base_layout_drawn)
     {
@@ -264,20 +264,24 @@ void _render_base_layout()
     }
     const char recipe_header[] = "Current Recipe:";
     draw_string_centered(recipe_header, &RecipeHeaderBox, RecipeHeaderFont, BLACK, WHITE);
+    vTaskDelay(0);
 
     // Draw Scale Outline
     draw_box(&ProgressBarBorderBox, WHITE, (DOT_PIXEL)ProgressBarBorderSize, DRAW_FILL_EMPTY);
+    vTaskDelay(0);
 
     // Draw Target Line
     Paint_DrawRectangle(ProgressBarTargetCenter - ProgressBarTargetWidth / 2, ProgressBarBox.top, ProgressBarTargetCenter + ProgressBarTargetWidth / 2, ProgressBarBox.bottom, BLUE, DOT_PIXEL::DOT_PIXEL_1X1, DRAW_FILL_FULL);
+    vTaskDelay(0);
 
     // Draw Instruction Seperator
     draw_box(&InstructionBorderBox, GRAYBLUE, DOT_PIXEL::DOT_PIXEL_2X2, DRAW_FILL::DRAW_FILL_EMPTY);
+    vTaskDelay(0);
 
     base_layout_drawn = true;
 }
 
-void _clear_layout()
+void _clear_recipe_layout()
 {
     Paint_Clear(BLACK);
     base_layout_drawn = false;
@@ -286,7 +290,7 @@ void _clear_layout()
 void _render_recipe(RecipeData recipe)
 {
     printf("Rendering Recipe: %s\n", recipe.text);
-    _render_base_layout();
+    _render_recipe_layout();
     draw_string_rel_box(recipe.text, RecipeFont, BLACK, WHITE, &RecipeBox);
 }
 void _render_instruction(InstructionData instruction)
@@ -307,7 +311,7 @@ void _render_success(SuccessData success)
     draw_string_rel_box(success.text, &Font24, GBLUE, BLACK, &PopUpBox);
 
     vTaskDelay(SUCCESS_POPUP_DURATION);
-    _clear_layout();
+    _clear_recipe_layout();
 }
 void _render_error(ErrorData error)
 {
@@ -317,7 +321,7 @@ void _render_error(ErrorData error)
     draw_string_rel_box(error.text, &Font24, BRED, BLACK, &PopUpBox);
 
     vTaskDelay(ERROR_POPUP_DURATION);
-    _clear_layout();
+    _clear_recipe_layout();
 }
 void _render_scale(ScaleData scale)
 {
