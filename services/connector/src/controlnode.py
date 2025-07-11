@@ -3,6 +3,7 @@ from enum import Enum
 from src.streamnode import Node
 from struct import pack, unpack
 import logging
+from itertools import chain
 
 logger = logging.getLogger(__name__)
 
@@ -25,14 +26,62 @@ class PyfIDs(bytes, Enum):
 type ESPControlCallbackArgs = tuple[PyfIDs, ...]
 
 
+class WeightWatcher(Node[ESPControlCallbackArgs, float]):
+    weight_history: list[float]
+    history_len: int = 5
+    tolerance: float = 1.0
+
+    def __init__(
+        self, node_name: str, tolerance: float = 1.0, history_len: int = 5
+    ) -> None:
+        self.weight_history = []
+        self.history_len = history_len
+        self.tolerance = tolerance
+        super().__init__(node_name)
+
+    def check_weight_stable(self) -> float | None:
+        if len(self.weight_history) != self.history_len:
+            return None
+
+        avg = sum(self.weight_history) / len(self.weight_history)
+        if all(abs(w - avg) < self.tolerance for w in self.weight_history):
+            return avg
+
+    def handle_input(self, data: tuple[PyfIDs, ...]) -> None:
+        id, *args = data
+        if id != PyfIDs.notifyWeight and len(args) != 1:
+            return
+
+        if isinstance((weight := args[0]), float):
+            self.weight_history = [
+                w
+                for w, _ in zip(
+                    chain([weight], self.weight_history), range(self.history_len)
+                )
+            ]
+
+        if (stable_weight := self.check_weight_stable()) is not None:
+            self.output(stable_weight)
+
+
 class ESPControlNode(Node[bytes, ESPControlCallbackArgs], asyncio.Protocol):
     own_transport: asyncio.Transport
+    weight_watcher: WeightWatcher
     on_conn_lost: asyncio.Future[None]
     buf: bytes
 
-    def __init__(self, name: str, on_conn_lost: asyncio.Future[None]) -> None:
+    def __init__(
+        self,
+        name: str,
+        on_conn_lost: asyncio.Future[None],
+        weight_watcher: WeightWatcher | None,
+    ) -> None:
         self.on_conn_lost = on_conn_lost
         self.buf = b""
+        if weight_watcher is None:
+            weight_watcher = WeightWatcher("ESPWeightWatcher")
+        self.weight_watcher = weight_watcher
+        self.add_outgoing_node(self.weight_watcher)
         super().__init__(name)
 
     def write_id(self, id: ESPfIDs) -> None:
@@ -48,13 +97,16 @@ class ESPControlNode(Node[bytes, ESPControlCallbackArgs], asyncio.Protocol):
 
     def doIngredientStep(
         self,
-        stable_offset: float | None,
         delta_target: float,
         instruction: str,
     ) -> None:
         self.write_id(ESPfIDs.doStep)
-        if stable_offset is None:
+
+        if (
+            stable_offset := self.weight_watcher.check_weight_stable()
+        ) is None:  # If no stable weight: Use esp internal zeroing
             stable_offset = NAN
+
         self.handle_input(pack("dd", stable_offset, delta_target))
         self.write_str(instruction)
 

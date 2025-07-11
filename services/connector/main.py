@@ -186,7 +186,7 @@ class LLMNode(Node[str | MixingEvent, str]):
             if step.einheit == "cl":
                 menge *= 10
 
-            self.esp_control_node.doIngredientStep(None, menge, step.beschreibung)
+            self.esp_control_node.doIngredientStep(menge, step.beschreibung)
 
         if isinstance(step, InstructionStep):
             self.esp_control_node.doInstructionStep(step.beschreibung)
@@ -413,7 +413,9 @@ async def async_main():
 
     on_esp_ctrl_lost = loop.create_future()
     esp_ctrl_transport, esp_ctrl_stream = await loop.create_connection(
-        lambda: ESPControlNode("esp_control", on_esp_ctrl_lost),
+        lambda: ESPControlNode(
+            "esp_control", on_esp_ctrl_lost, WeightWatcher("ESPWW", 5.0)
+        ),
         ESP_CTRL_ADDR,
         ESP_CTRL_PORT,
     )
@@ -472,7 +474,7 @@ async def async_main():
     await asyncio.sleep(10)
     esp_ctrl_stream.startRecipe("Test-Rezept\n Zeile 2")
     await asyncio.sleep(1)
-    esp_ctrl_stream.doIngredientStep(2.0, 3.0, "Test instruction")
+    esp_ctrl_stream.doIngredientStep(3.0, "Test instruction")
 
     # # gain.add_outgoing_node(esp_stream)
 
