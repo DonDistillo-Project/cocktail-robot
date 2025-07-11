@@ -17,7 +17,7 @@ from src.mixmode import (
 from openai.types.responses import ResponseFunctionToolCall
 from pydantic import ValidationError
 from src.streamnode import BroadcastStream, FnNode, Node, SDStreamNode
-from src.controlnode import ESPControlCallbackArgs, ESPControlNode
+from src.controlnode import ESPControlCallbackArgs, ESPControlNode, WeightWatcher
 import sounddevice as sd
 
 ESP_HOST = "ESP32"
@@ -175,13 +175,21 @@ class LLMNode(Node[str | MixingEvent, str]):
         # TODO: setup scale (check)
         self.esp_control_node.zeroScale()
         # # TODO: show instruction on display (redo controlnode and check)
-        # if step.einheit == "cl":
-        #     step.menge = step.menge*10
 
-        # if isinstance(step, IngredientStep):
-        #     self.esp_control_node.doIngredientStep(step.menge, step.beschreibung)
-        # if isinstance(step, InstructionStep):
-        #     self.esp_control_node.doInstructionStep(step.beschreibung)
+        if isinstance(step, IngredientStep):
+            menge = step.menge
+
+            if menge is None:
+                menge = 0.0
+
+            # Transform menge to grams
+            if step.einheit == "cl":
+                menge *= 10
+
+            self.esp_control_node.doIngredientStep(None, menge, step.beschreibung)
+
+        if isinstance(step, InstructionStep):
+            self.esp_control_node.doInstructionStep(step.beschreibung)
 
     def stop_mixing_mode(self, reason: str) -> None:
         if self.state.current_mode != Mode.MIXING:

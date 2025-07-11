@@ -7,6 +7,9 @@ import logging
 logger = logging.getLogger(__name__)
 
 
+NAN = float("nan")
+
+
 class ESPfIDs(bytes, Enum):
     startRecipe = b"\x00"
     doStep = b"\x01"
@@ -45,16 +48,20 @@ class ESPControlNode(Node[bytes, ESPControlCallbackArgs], asyncio.Protocol):
 
     def doIngredientStep(
         self,
-        stable_offset: float,
+        stable_offset: float | None,
         delta_target: float,
         instruction: str,
-        # todo: remove stable_offset
     ) -> None:
         self.write_id(ESPfIDs.doStep)
+        if stable_offset is None:
+            stable_offset = NAN
         self.handle_input(pack("dd", stable_offset, delta_target))
         self.write_str(instruction)
 
-    # todo: implement doInstructionStep for instructions only
+    def doInstructionStep(self, instruction: str):
+        self.write_id(ESPfIDs.doStep)
+        self.handle_input(pack("dd", NAN, NAN))
+        self.write_str(instruction)
 
     def finishRecipe(self) -> None:
         self.write_id(ESPfIDs.finishRecipe)
