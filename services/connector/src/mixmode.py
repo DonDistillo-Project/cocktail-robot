@@ -18,7 +18,7 @@ class IngredientStep(BaseModel):
     typ: Literal["zutat"]
     beschreibung: str = Field(..., min_length=1)
     name: str = Field(..., min_length=1)
-    menge: Optional[float] = None  # Allows int, float, and None
+    menge: Optional[int | float] = None  # Allows int, float, and None
     einheit: Optional[str] = None
 
     model_config = ConfigDict(extra="forbid")
