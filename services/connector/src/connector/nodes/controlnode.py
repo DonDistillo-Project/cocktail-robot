@@ -1,9 +1,10 @@
 import asyncio
-from enum import Enum
-from src.streamnode import Node
-from struct import pack, unpack
 import logging
+from enum import Enum
 from itertools import chain
+from struct import pack, unpack
+
+from .streamnode import Node
 
 logger = logging.getLogger(__name__)
 
@@ -81,8 +82,8 @@ class ESPControlNode(Node[bytes, ESPControlCallbackArgs], asyncio.Protocol):
         if weight_watcher is None:
             weight_watcher = WeightWatcher("ESPWeightWatcher")
         self.weight_watcher = weight_watcher
-        self.add_outgoing_node(self.weight_watcher)
         super().__init__(name)
+        self.add_outgoing_node(self.weight_watcher)
 
     def write_id(self, id: ESPfIDs) -> None:
         self.handle_input(id.value)
