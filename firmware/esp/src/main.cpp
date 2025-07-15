@@ -1,6 +1,7 @@
 #include "Setup.hpp"
-#include "esp_random.h"
-#define size(x) (unsigned char)sizeof(x), x
+
+// #include "esp_random.h"
+// #define size(x) (unsigned char)sizeof(x), x
 
 // void r(void *_)
 // {
@@ -27,24 +28,23 @@
 //     }
 // }
 
-void loop()
-{
-    printf("Waiting for audio Stream\n");
-    audioStreamAccept();
-    printf("Audio stream socket connected\n");
+void loop() {
+  printf("Waiting for audio Stream\n");
+  audioStreamAccept();
+  printf("Audio stream socket connected\n");
 
-    // render_success(size("Audio Stream Socket Connected"));
+  // render_success(size("Audio Stream Socket Connected"));
 
-    printf("Waiting for control socket connection\n");
-    ctrlSockAccept();
-    printf("Control socket connected\n");
+  printf("Waiting for control socket connection\n");
+  ctrlSockAccept();
+  printf("Control socket connected\n");
 
-    // render_success(size("Control Socket Connected"));
+  // render_success(size("Control Socket Connected"));
 
-    printf("Waiting for Tasks to finish\n");
-    ulTaskNotifyTake(pdTRUE, portMAX_DELAY);
+  printf("Waiting for Tasks to finish\n");
+  ulTaskNotifyTake(pdTRUE, portMAX_DELAY);
 
-    // vTaskDelete(ctrl_loop_handle);
-    vTaskDelete(write_handle);
-    vTaskDelete(read_handle);
+  // vTaskDelete(ctrl_loop_handle);
+  vTaskDelete(write_handle);
+  vTaskDelete(read_handle);
 }

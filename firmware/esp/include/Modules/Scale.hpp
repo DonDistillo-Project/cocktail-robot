@@ -8,54 +8,49 @@
 double scale_linear_factor = SCALE_LIN_FAC;
 double scale_offset = SCALE_START_OFFSET;
 
-double readScaleRaw()
-{
-    unsigned long count;
-    unsigned char i;
-    bool Flag = 0;
+double readScaleRaw() {
+  unsigned long count;
+  unsigned char i;
+  bool Flag = 0;
 
-    digitalWrite(SCALE_DAT_PIN, HIGH);
-    delayMicroseconds(1);
+  digitalWrite(SCALE_DAT_PIN, HIGH);
+  delayMicroseconds(1);
 
-    digitalWrite(SCALE_CLK_PIN, LOW);
-    delayMicroseconds(1);
+  digitalWrite(SCALE_CLK_PIN, LOW);
+  delayMicroseconds(1);
 
-    count = 0;
-    while (digitalRead(SCALE_DAT_PIN))
-        ;
-    for (i = 0; i < 24; i++)
-    {
-        digitalWrite(SCALE_CLK_PIN, HIGH);
-        delayMicroseconds(1);
-        count = count << 1;
-        digitalWrite(SCALE_CLK_PIN, LOW);
-        delayMicroseconds(1);
-        if (digitalRead(SCALE_DAT_PIN))
-            count++;
-    }
+  count = 0;
+  while (digitalRead(SCALE_DAT_PIN))
+    ;
+  for (i = 0; i < 24; i++) {
     digitalWrite(SCALE_CLK_PIN, HIGH);
-    count ^= 0x800000;
     delayMicroseconds(1);
+    count = count << 1;
     digitalWrite(SCALE_CLK_PIN, LOW);
     delayMicroseconds(1);
+    if (digitalRead(SCALE_DAT_PIN))
+      count++;
+  }
+  digitalWrite(SCALE_CLK_PIN, HIGH);
+  count ^= 0x800000;
+  delayMicroseconds(1);
+  digitalWrite(SCALE_CLK_PIN, LOW);
+  delayMicroseconds(1);
 
-    return static_cast<double>(count);
+  return static_cast<double>(count);
 }
 
-void setScaleOffset()
-{
-    scale_offset = (double)readScaleRaw();
+void setScaleOffset() { scale_offset = (double)readScaleRaw(); }
+
+double getScaleWeight() {
+  double scale_data = readScaleRaw();
+  printf("read from scale: %lf", scale_data);
+  return scale_linear_factor * (scale_data - scale_offset);
 }
 
-double getScaleWeight()
-{
-    return scale_linear_factor * (readScaleRaw() - scale_offset);
-}
+int setupScale() {
+  pinMode(SCALE_CLK_PIN, OUTPUT);
+  pinMode(SCALE_DAT_PIN, INPUT);
 
-int setupScale()
-{
-    pinMode(SCALE_CLK_PIN, OUTPUT);
-    pinMode(SCALE_DAT_PIN, INPUT);
-
-    return 0;
+  return 0;
 }
