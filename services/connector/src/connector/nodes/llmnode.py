@@ -1,5 +1,6 @@
 import asyncio
 import logging
+import string
 from datetime import timedelta
 from enum import Enum
 from typing import Any, List
@@ -18,7 +19,7 @@ from ..mixmode_types import (
 from ..state import Mode, State, StateError
 from .base import Node
 from .controlnode import ESPControlNode
-from .streamnode import BroadcastStream
+from .streamnode import TTSStream
 
 
 class MixingEvent(Enum):
@@ -32,13 +33,13 @@ class LLMNode(Node[str | MixingEvent, str]):
     mixing_event_queue: asyncio.Queue[MixingEvent]
     current_llm_future: asyncio.Future[LLMResponse] | None = None
 
-    tts_node: BroadcastStream
+    tts_node: TTSStream
     esp_control_node: ESPControlNode
 
     def __init__(
-        self, name: str, tts_node: BroadcastStream, esp_control_node: ESPControlNode
+        self, name: str, tts_node: TTSStream, esp_control_node: ESPControlNode
     ):
-        super().__init__(name)
+        super().__init__(name, default_logging_level=logging.INFO)
         self.tts_node = tts_node
         self.esp_control_node = esp_control_node
 
@@ -60,7 +61,13 @@ class LLMNode(Node[str | MixingEvent, str]):
         self.mixing_event_queue = asyncio.Queue()
         self.user_event_queue = asyncio.Queue()
 
-        self.stopwords = ["stop", "Stop", "Abort", "abort", "Aufhören", "aufhören"]
+        self.stopwords = [
+            "stop",
+            "stopp",
+            "stoppe",
+            "abort",
+            "aufhören",
+        ]
         self.current_blacklist = []
 
         self.func_call_handler_map = {
@@ -88,11 +95,16 @@ class LLMNode(Node[str | MixingEvent, str]):
 
     def give_mixing_instructions(self) -> None:
         if self.state.current_mode != Mode.MIXING:
+            self._log(
+                "Call to give_mixing_instruction while not in MIXING mode",
+                level=logging.WARNING,
+            )
             return
         assert self.state.current_recipe is not None  # always set when in Mode.MIXING
 
         step = self.state.current_recipe.schritte[self.state.current_step]
 
+        print("Should output to TTS here ...")
         self.output(step.beschreibung)  # TTS
         # TODO: setup scale (check)
         self.esp_control_node.zeroScale()
@@ -158,6 +170,7 @@ class LLMNode(Node[str | MixingEvent, str]):
             raise e
 
         self.state.init_mixing_mode(args.rezept, call)
+        self.esp_control_node.startRecipe(args.rezept.name)
         self.give_mixing_instructions()
 
         return "Mixing mode started"
@@ -190,6 +203,9 @@ class LLMNode(Node[str | MixingEvent, str]):
         self, function_calls: List[ResponseFunctionToolCall], attempts_left: int
     ) -> None:
         if attempts_left == 0:
+            self._log(
+                f"LLM used all attempts for function call {function_calls[0].name}"
+            )
             return
         attempts_left -= 1
 
@@ -212,7 +228,7 @@ class LLMNode(Node[str | MixingEvent, str]):
 
         if call_handler is None:
             msg = f"LLM tried calling '{call.name}' which doesn't exist (in mode {self.state.current_mode})"
-            self._log(msg)
+            self._log(msg, level=logging.WARNING)
 
             self.state.current_llm.add_function_call_output(msg, call)
 
@@ -223,9 +239,10 @@ class LLMNode(Node[str | MixingEvent, str]):
 
             return
 
-        self._log(f"LLM made function call to '{call.name}'")
+        self._log(f"LLM made function call to '{call.name}'", level=logging.INFO)
         calling_llm = self.state.current_llm
         try:
+            print("Calling ...")
             result = call_handler(call)
         except (StateError, ValidationError) as e:
             calling_llm.add_function_call_output(str(e), call)
@@ -254,24 +271,32 @@ class LLMNode(Node[str | MixingEvent, str]):
     def output(self, data: str) -> None:
         self.tts_node.stop_flag = False
         self.current_blacklist.extend(
-            [word for word in data.split(" ") if word in self.stopwords]
+            [
+                word
+                for word in data.lower().strip(string.punctuation).split(" ")
+                if word in self.stopwords
+            ]
         )
         super().output(data)
 
     async def await_sentence(self) -> None:
         sentence = await self.sentence_queue.get()
 
-        if self.tts_node.is_broadcasting(timedelta(seconds=0.5)):
-            for word in [
+        if self.tts_node.is_broadcasting(timedelta(seconds=2)):
+            self._log("TTS is brodcasting, skipping input ...", level=logging.INFO)
+            for stopword in [
                 word for word in self.stopwords if word not in self.current_blacklist
             ]:
-                if word in sentence:
+                if stopword in sentence.lower():
                     self.stop_talking()
                     return
             return
 
         mode = self.state.current_mode
-        self._log(f"Generating {mode.name} mode response for message '{sentence}'")
+        self._log(
+            f"Generating {mode.name} mode response for message '{sentence}'",
+            level=logging.INFO,
+        )
 
         llm = self.state.current_llm
         loop = asyncio.get_event_loop()
@@ -288,6 +313,7 @@ class LLMNode(Node[str | MixingEvent, str]):
             self._log("Cancelled response because of user input", logging.WARNING)
             return
 
+        self._log(f'LLM responded: "{response.text}"', logging.INFO)
         self.dispatch_function_calls(response.function_calls)
 
     async def await_mixing_event(self) -> None:

@@ -7,10 +7,14 @@ logger = logging.getLogger(__name__)
 class Node[In, Out]:
     name: str
     outgoing_nodes: set["Node[Out, Any]"]
+    default_logging_level: int = logging.DEBUG
 
-    def __init__(self, node_name: str) -> None:
+    def __init__(
+        self, node_name: str, default_logging_level: int = logging.DEBUG
+    ) -> None:
         self.name = node_name
         self.outgoing_nodes = set()
+        self.default_logging_level = default_logging_level
 
     def __str__(self) -> str:
         return self.name
@@ -18,7 +22,7 @@ class Node[In, Out]:
     def _log(
         self,
         message: str,
-        level: int = logging.DEBUG,
+        level: int = default_logging_level,
         log_format="N:{self.name}: {message}",
     ) -> None:
         logger.log(level, log_format.format_map(locals()))

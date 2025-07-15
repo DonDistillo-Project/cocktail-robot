@@ -9,7 +9,17 @@ from .streamnode import Node
 logger = logging.getLogger(__name__)
 
 
-NAN = float("nan")
+NAN = float(-10000)
+
+UMLAUT_MAP = {
+    196: "Ae",
+    214: "Oe",
+    220: "Ue",
+    228: "ae",
+    246: "oe",
+    252: "ue",
+    223: "ss",
+}
 
 
 class ESPfIDs(bytes, Enum):
@@ -89,8 +99,9 @@ class ESPControlNode(Node[bytes, ESPControlCallbackArgs], asyncio.Protocol):
         self.handle_input(id.value)
 
     def write_str(self, s: str) -> None:
-        self.handle_input(len(s).to_bytes())
-        self.handle_input(s.encode())
+        encoded_str = s.translate(UMLAUT_MAP).encode()
+        self.handle_input(len(encoded_str).to_bytes())
+        self.handle_input(encoded_str)
 
     def startRecipe(self, recipe_name: str) -> None:
         self.write_id(ESPfIDs.startRecipe)
@@ -101,6 +112,7 @@ class ESPControlNode(Node[bytes, ESPControlCallbackArgs], asyncio.Protocol):
         delta_target: float,
         instruction: str,
     ) -> None:
+        print("doing ingredient step")
         self.write_id(ESPfIDs.doStep)
 
         if (
@@ -112,6 +124,7 @@ class ESPControlNode(Node[bytes, ESPControlCallbackArgs], asyncio.Protocol):
         self.write_str(instruction)
 
     def doInstructionStep(self, instruction: str):
+        print("doing instruction step")
         self.write_id(ESPfIDs.doStep)
         self.handle_input(pack("dd", NAN, NAN))
         self.write_str(instruction)
@@ -142,11 +155,13 @@ class ESPControlNode(Node[bytes, ESPControlCallbackArgs], asyncio.Protocol):
         return asyncio.create_task(wait_conn_lost(self), name=self.name)
 
     def handle_input(self, data: bytes) -> None:
-        self._log(f"Writing {len(data)} bytes ({data}) to own transport")
+        self._log(
+            f"Writing {len(data)} bytes ({data}) to own transport", level=logging.INFO
+        )
         self.own_transport.write(data)
 
     def data_received(self, data: bytes) -> None:
-        self._log(f"Received {len(data)} bytes from own transport")
+        self._log(f"Received {len(data)} bytes from own transport", level=logging.INFO)
         self.buf += data
 
         if len(self.buf) >= 9:

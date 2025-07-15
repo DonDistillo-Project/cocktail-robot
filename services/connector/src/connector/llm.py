@@ -85,6 +85,7 @@ class LLM:
 
             function_calls = []
             assert complete_response is not None
+
             for item in complete_response.output:
                 match item.type:
                     case "message":
