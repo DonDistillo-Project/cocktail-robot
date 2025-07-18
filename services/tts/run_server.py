@@ -7,9 +7,8 @@ from RealtimeTTS.engines.coqui_engine import CoquiEngine
 ADDR = "0.0.0.0"
 PORT = 2345
 
-logging.basicConfig(level=logging.DEBUG)
 logger = logging.getLogger(__name__)
-
+logging.basicConfig(level=logging.DEBUG)
 
 class TTSProtocol(asyncio.Protocol):
     transport: asyncio.Transport
@@ -65,7 +64,7 @@ async def main():
         use_deepspeed=True,
         language="de",
     )
-    print(engine.verify_sample_rate(-1))
+    print(engine.get_stream_info())
 
     logger.info(f"Opening server socket on ({ADDR}:{PORT})")
     server = await loop.create_server(
