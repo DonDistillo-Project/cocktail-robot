@@ -1,0 +1,62 @@
+#pragma once
+
+/* Common Macros */
+#define STR_AND_LEN(str) (unsigned char)sizeof(str), str
+
+/* Module Config */
+#define FS_REFORMAT_ON_FAIL true
+
+#define WIFI_FS_DIR "/wifi/"
+#define WIFI_SSID_FILE "/wifi/ssid"
+#define WIFI_PASS_FILE "/wifi/pass"
+#define WIFI_RETRY_TIMES 20
+#define WIFI_RETRY_DELAY 1000
+
+#define SERIAL_BAUD 9600
+#define SERIAL_TIMEOUT 10000
+
+#define SCALE_CLK_PIN GPIO_NUM_2
+#define SCALE_DAT_PIN GPIO_NUM_4
+#define SCALE_LIN_FAC 0.00253508
+#define SCALE_START_OFFSET 8507165.45
+
+#define MIC_I2S_NUM I2S_NUM_0
+#define MIC_I2S_SCK GPIO_NUM_22
+#define MIC_I2S_WS GPIO_NUM_21
+#define MIC_I2S_SD GPIO_NUM_20
+#define MIC_SR 16000
+#define MIC_DMA_BUF_COUNT 8
+#define MIC_DMA_BUF_LEN 64
+
+#define SPEAKER_I2S_NUM I2S_NUM_1
+#define SPEAKER_I2S_SCK GPIO_NUM_33 // BLCK - TODO: Find new Pin
+#define SPEAKER_I2S_WS GPIO_NUM_27  // LRCLK
+#define SPEAKER_I2S_SD GPIO_NUM_32  // DIN
+#define SPEAKER_SR 24000
+#define SPEAKER_DMA_BUF_COUNT 8
+#define SPEAKER_DMA_BUF_LEN 64
+
+#define STREAMS_ADDR INADDR_ANY
+#define STREAMS_PORT 1234
+#define STREAMS_BACKLOG 2
+#define STREAMS_STACKSIZE 10000
+
+#define CTRL_ADDR INADDR_ANY
+#define CTRL_PORT 2345
+#define CTRL_BACKLOG 2
+#define CTRL_STACKSIZE 10000
+#define CTRL_SCALE_POLL_MS 1000
+
+#define SCREEN_CLK_PIN GPIO_NUM_14 // orange
+#define SCREEN_DIN_PIN GPIO_NUM_13 // grün
+#define SCREEN_CS_PIN GPIO_NUM_10  // gelb
+#define SCREEN_DC_PIN GPIO_NUM_7   // blau
+#define SCREEN_RST_PIN GPIO_NUM_8  // braun
+#define SCREEN_BL_PIN GPIO_NUM_9   // grau
+#define SCREEN_RENDER_STACKSIZE 10000
+
+/* Task Prio Config */
+#define STREAMS_SPEAKER_PRIO 11
+#define STREAMS_MIC_PRIO 10
+#define CTRL_PRIO 5
+#define SCREEN_RENDER_PRIO 2
