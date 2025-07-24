@@ -1,6 +1,0 @@
-logs/
-.venv
-.ruff_cache
-**/__pycache__/
-*.wav
-*.log

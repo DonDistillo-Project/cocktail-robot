@@ -1,7 +1,9 @@
-*log*
+.env
+*/logs
+*.log
 
-# Created by https://www.toptal.com/developers/gitignore/api/python,visualstudiocode,macos
-# Edit at https://www.toptal.com/developers/gitignore?templates=python,visualstudiocode,macos
+# Everything below created by https://www.toptal.com/developers/gitignore/api/macos,python,visualstudiocode,platformio
+# Edit at https://www.toptal.com/developers/gitignore?templates=macos,python,visualstudiocode,platformio
 
 ### macOS ###
 # General
@@ -35,6 +37,13 @@ Temporary Items
 ### macOS Patch ###
 # iCloud generated files
 *.icloud
+
+### PlatformIO ###
+.pioenvs
+.piolibdeps
+.clang_complete
+.gcc-flags.json
+.pio
 
 ### Python ###
 # Byte-compiled / optimized / DLL files
@@ -227,8 +236,4 @@ pyrightconfig.json
 .history
 .ionide
 
-### PyCharm ###
-#ignore ide stuff
-.idea/
-
-# End of https://www.toptal.com/developers/gitignore/api/python,visualstudiocode,macos
+# End of https://www.toptal.com/developers/gitignore/api/macos,python,visualstudiocode,platformio
