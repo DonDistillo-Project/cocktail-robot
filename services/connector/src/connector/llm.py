@@ -18,8 +18,9 @@ class LLM:
         system_prompt_path: Path,
         tools_json_path: Path,
         model: str = "gpt-4.1-mini",
+        api_key: str | None = None,
     ):
-        self.client = OpenAI()
+        self.client = OpenAI(api_key=api_key)
         self.model = model
         self.lock = Lock()
 

@@ -1,7 +1,7 @@
 import asyncio
 import logging
 
-import connector.config as config
+from connector.config import settings
 from connector.nodes.base import FnNode, Node
 from connector.nodes.controlnode import (
     ESPControlCallbackArgs,
@@ -26,8 +26,8 @@ async def async_main():
     on_esp_conn_lost = loop.create_future()
     esp_audio_transport, esp_audio_stream = await loop.create_connection(
         lambda: BroadcastStream[bytes, bytes]("ESP", on_esp_conn_lost),
-        config.ESP_AUDIO_ADDR,
-        config.ESP_AUDIO_PORT,
+        settings.ESP_ADDR,
+        settings.ESP_AUDIO_PORT,
     )
 
     on_esp_ctrl_lost = loop.create_future()
@@ -35,8 +35,8 @@ async def async_main():
         lambda: ESPControlNode(
             "esp_control", on_esp_ctrl_lost, WeightWatcher("ESPWW", 5.0)
         ),
-        config.ESP_CTRL_ADDR,
-        config.ESP_CTRL_PORT,
+        settings.ESP_ADDR,
+        settings.ESP_CTRL_PORT,
     )
 
     logger.info("Creating RealtimeSTT connection")
@@ -45,16 +45,16 @@ async def async_main():
         lambda: BroadcastStream[bytes, str](
             "STT", on_stt_conn_lost, out_converter=bytes.decode
         ),
-        config.STT_ADDR,
-        config.STT_PORT,
+        settings.STT_ADDR,
+        settings.STT_PORT,
     )
 
     logger.info("Creating RealtimeTTS connection")
     on_tts_conn_lost = loop.create_future()
     tts_transport, tts_stream = await loop.create_connection(
         lambda: TTSStream("TTS", on_tts_conn_lost, in_converter=str.encode),
-        config.TTS_ADDR,
-        config.TTS_PORT,
+        settings.TTS_ADDR,
+        settings.TTS_PORT,
     )
 
     llm_node = LLMNode("LLM", tts_stream, esp_ctrl_stream)
@@ -74,7 +74,7 @@ async def async_main():
 
     ### DEBUG ###
     mic_gain.add_outgoing_node(
-        SDStreamNode(samplerate=config.MIC_SAMPLE_RATE, name="Mic Playback")
+        SDStreamNode(samplerate=settings.MIC_SAMPLE_RATE, name="Mic Playback")
     )
 
     esp_ctrl_stream.add_outgoing_node(

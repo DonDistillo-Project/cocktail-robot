@@ -8,7 +8,7 @@ from typing import Any, List
 from openai.types.responses import ResponseFunctionToolCall
 from pydantic import ValidationError
 
-from ..config import OPENAI_MODEL, RESOURCES_DIR
+from ..config import settings
 from ..llm import LLM, LLMResponse
 from ..mixmode_types import (
     IngredientStep,
@@ -44,14 +44,16 @@ class LLMNode(Node[str | MixingEvent, str]):
         self.esp_control_node = esp_control_node
 
         llm_recipe_search = LLM(
-            RESOURCES_DIR / "RECIPE_SEARCH" / "system_prompt.md",
-            RESOURCES_DIR / "RECIPE_SEARCH" / "tools.json",
-            model=OPENAI_MODEL,
+            settings.RESOURCES_DIR / "RECIPE_SEARCH" / "system_prompt.md",
+            settings.RESOURCES_DIR / "RECIPE_SEARCH" / "tools.json",
+            model=settings.OPENAI_MODEL,
+            api_key=settings.OPENAI_API_KEY,
         )
         llm_mixing = LLM(
-            RESOURCES_DIR / "MIXING" / "system_prompt.md",
-            RESOURCES_DIR / "MIXING" / "tools.json",
-            model=OPENAI_MODEL,
+            settings.RESOURCES_DIR / "MIXING" / "system_prompt.md",
+            settings.RESOURCES_DIR / "MIXING" / "tools.json",
+            model=settings.OPENAI_MODEL,
+            api_key=settings.OPENAI_API_KEY,
         )
 
         self.state = State(llm_recipe_search, llm_mixing)

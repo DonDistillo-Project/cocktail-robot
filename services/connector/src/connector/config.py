@@ -1,25 +1,37 @@
 from pathlib import Path
 
-# Network config
-ESP_HOST = "ESP32"
-ESP_AUDIO_ADDR = "192.168.125.16"
-ESP_AUDIO_PORT = 1234
+from pydantic_settings import BaseSettings, SettingsConfigDict
 
-ESP_CTRL_ADDR = ESP_AUDIO_ADDR
-ESP_CTRL_PORT = 2345
 
-STT_ADDR = "localhost"
-STT_PORT = 1234
-STT_SPRT = 16000
+class Settings(BaseSettings):
+    # Network config
+    ESP_ADDR: str = "192.168.125.16"
+    ESP_AUDIO_PORT: int = 1234
+    ESP_CTRL_PORT: int = 2345
 
-TTS_ADDR = "localhost"
-TTS_PORT = 2345
-TTS_SPRT = 22500
+    STT_ADDR: str = "localhost"
+    STT_PORT: int = 1234
+    STT_SPRT: int = 16000
 
-# AudioStream config
-MIC_SAMPLE_RATE = 16000
-SPEAKER_SAMPLE_RATE = 24000
+    TTS_ADDR: str = "localhost"
+    TTS_PORT: int = 2345
+    TTS_SPRT: int = 22500
 
-# LLM config
-OPENAI_MODEL = "gpt-4.1-mini"
-RESOURCES_DIR = Path.cwd() / "resources" / "llm"
+    # AudioStream config
+    MIC_SAMPLE_RATE: int = 16000
+    SPEAKER_SAMPLE_RATE: int = 24000
+
+    # LLM config
+    OPENAI_MODEL: str = "gpt-4.1-mini"
+    OPENAI_API_KEY: str = "YOUR_API_KEY"
+
+    # Path config
+    # Assumes the project root is two levels up from this file
+    # (src/connector/config.py -> src/ -> project root)
+    PROJECT_ROOT: Path = Path(__file__).parent.parent.parent
+    RESOURCES_DIR: Path = PROJECT_ROOT / "resources" / "llm"
+
+    model_config = SettingsConfigDict(env_file=".env", extra="ignore")
+
+
+settings = Settings()

@@ -8,17 +8,22 @@ dependencies = [
     "openai>=1.84.0",
     "numpy>=2.2.6",
     "pydantic>=2.11.7",
-    "sounddevice>=0.5.2"
+    "sounddevice>=0.5.2",
+    "pydantic-settings>=2.10.1",
 ]
 
 [dependency-groups]
 dev = [
+    "connector",
     "pytest>=8.4.1",
     "ruff>=0.11.12",
 ]
 
 [tool.setuptools.packages.find]
 where = ["src"]
+
+[tool.uv.sources]
+connector = { workspace = true }
 
 [build-system]
 requires = ["setuptools>=61.0", "wheel"]
