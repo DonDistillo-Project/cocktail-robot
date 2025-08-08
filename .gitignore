@@ -1,5 +1,5 @@
 .env
-*/logs
+**/logs/
 *.log
 
 # Everything below created by https://www.toptal.com/developers/gitignore/api/macos,python,visualstudiocode,platformio
@@ -218,6 +218,7 @@ poetry.toml
 pyrightconfig.json
 
 ### VisualStudioCode ###
+*.code-workspace
 .vscode/*
 !.vscode/settings.json
 !.vscode/tasks.json
