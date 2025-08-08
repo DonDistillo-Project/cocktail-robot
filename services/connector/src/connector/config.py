@@ -31,7 +31,7 @@ class Settings(BaseSettings):
     PROJECT_ROOT: Path = Path(__file__).parent.parent.parent
     RESOURCES_DIR: Path = PROJECT_ROOT / "resources" / "llm"
 
-    model_config = SettingsConfigDict(env_file=".env", extra="")
+    model_config = SettingsConfigDict(env_file=".env", extra=None)
 
 
 settings = Settings()
