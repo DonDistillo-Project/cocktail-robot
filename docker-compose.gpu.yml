@@ -1,0 +1,41 @@
+services:
+  connector:
+    build:
+      context: ./services/connector
+    env_file:
+      - ./.env
+    environment:
+      STT_ADDR: stt
+      TTS_ADDR: tts
+
+  stt:
+    build:
+      context: ./services/stt
+      target: gpu
+    env_file:
+      - ./.env
+    ports:
+      - "9001:9001"
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [ gpu ]
+
+  tts:
+    build:
+      context: ./services/tts
+      target: gpu
+    env_file:
+      - ./.env
+    ports:
+      - "9002:9002"
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [ gpu ]

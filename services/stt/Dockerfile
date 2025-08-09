@@ -1,11 +1,7 @@
-# syntax=docker/dockerfile:1
-
 ARG CPU_BASE=python:3.12-slim
 ARG GPU_BASE=nvidia/cuda:12.9.1-cudnn-runtime-ubuntu24.04
 
-############################
 # ---------- CPU ----------
-############################
 FROM ${CPU_BASE} AS cpu
 
 # System deps
@@ -46,9 +42,7 @@ EXPOSE 9001
 CMD ["uv", "run", "run_server.py"]
 
 
-############################
 # ---------- GPU ----------
-############################
 FROM ${GPU_BASE} AS gpu
 
 # Python + build deps
