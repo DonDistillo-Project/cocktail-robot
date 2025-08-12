@@ -13,7 +13,7 @@ Don Distillo is designed to be a hands-free cocktail assistant. You can control 
 - **Guided mixing:** The robot uses a scale and a display to help you pour the right amount of each ingredient.
 - **Speech interaction:** Don Distillo provides audio feedback and instructions.
 
-![Scale Showcase](media/display_loop.webm)
+![Scale Showcase](media/display_loop.mp4)
 
 ## Requirements
 
