@@ -6,6 +6,8 @@ This repository contains the software for "Don Distillo", an AI-powered cocktail
 
 Don Distillo is designed to be a hands-free cocktail assistant. You can control it entirely with your voice, and it will talk back to you, guiding you through the process of making a delicious cocktail. The robot is powered by a Large Language Model (LLM), which allows for natural and intuitive interaction.
 
+https://github.com/user-attachments/assets/4040f2ff-ef4b-4da3-9fca-8928fee331a7
+
 ### Features
 
 - **Voice-controlled:** Just tell Don Distillo what you want to do.
@@ -13,7 +15,7 @@ Don Distillo is designed to be a hands-free cocktail assistant. You can control 
 - **Guided mixing:** The robot uses a scale and a display to help you pour the right amount of each ingredient.
 - **Speech interaction:** Don Distillo provides audio feedback and instructions.
 
-![Scale Showcase](media/display_loop.mp4)
+
 
 ## Requirements
 
