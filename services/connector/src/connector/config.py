@@ -10,11 +10,11 @@ class Settings(BaseSettings):
     ESP_CTRL_PORT: int = 2345
 
     STT_ADDR: str = "localhost"
-    STT_PORT: int = 1234
+    STT_PORT: int = 9001
     STT_SPRT: int = 16000
 
     TTS_ADDR: str = "localhost"
-    TTS_PORT: int = 2345
+    TTS_PORT: int = 9002
     TTS_SPRT: int = 22500
 
     # AudioStream config
@@ -31,7 +31,7 @@ class Settings(BaseSettings):
     PROJECT_ROOT: Path = Path(__file__).parent.parent.parent
     RESOURCES_DIR: Path = PROJECT_ROOT / "resources" / "llm"
 
-    model_config = SettingsConfigDict(env_file=".env", extra="ignore")
+    model_config = SettingsConfigDict(env_file=".env", extra=None)
 
 
 settings = Settings()

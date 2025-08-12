@@ -1,27 +1,42 @@
 [project]
-name = "ttsserver"
-version = "0.1.0"
-description = "Add your description here"
+name            = "tts-server"
+version         = "0.1.0"
 readme = "README.md"
-requires-python = ">=3.11"
+requires-python = ">=3.11, <3.13"
+
 dependencies = [
-    "deepspeed>=0.17.1",
-    "realtimetts[coqui]>=0.5.5",
-    "torch==2.6.0",
-    "torchaudio==2.6.0",
-    "transformers<=4.47.0"
+  "transformers<=4.47.0",
+]
+
+[project.optional-dependencies]
+cpu = [
+  "torch==2.5.1",
+  "torchaudio==2.5.1",
+  "realtimetts[azure]>=0.5.5",
+]
+gpu = [
+  "torch==2.5.1",
+  "torchaudio==2.5.1",
+  "realtimetts[coqui]>=0.5.5",
+  "deepspeed>=0.17.1",
 ]
 
 [[tool.uv.index]]
-name = "pytorch-cu124"
-url = "https://download.pytorch.org/whl/cu124"
+name     = "pytorch-cpu"
+url      = "https://download.pytorch.org/whl/cpu"
+explicit = true
+
+[[tool.uv.index]]
+name     = "pytorch-cu129"
+url      = "https://download.pytorch.org/whl/cu129"
 explicit = true
 
 [tool.uv.sources]
 torch = [
-  { index = "pytorch-cu124", marker = "sys_platform == 'linux' or sys_platform == 'win32'" },
+  { index  = "pytorch-cpu",    marker = "extra == 'cpu'" },
+  { index  = "pytorch-cu129",  marker = "extra == 'gpu' and extra != 'cpu'" },
 ]
 torchaudio = [
-  { index = "pytorch-cu124", marker = "sys_platform == 'linux' or sys_platform == 'win32'" },
+  { index  = "pytorch-cpu",    marker = "extra == 'cpu'" },
+  { index  = "pytorch-cu129",  marker = "extra == 'gpu' and extra != 'cpu'" },
 ]
-deepspeed = { url = "https://github.com/AlongWY/deepspeed_wheels/releases/download/v0.17.0/deepspeed-0.17.0+cu124torch2.6-cp312-cp312-manylinux_2_27_x86_64.manylinux_2_28_x86_64.whl" }

@@ -1,0 +1,27 @@
+services:
+  connector:
+    build:
+      context: ./services/connector
+    env_file:
+      - ./.env
+    environment:
+      STT_ADDR: stt
+      TTS_ADDR: tts
+
+  stt:
+    build:
+      context: ./services/stt
+      target: cpu
+    env_file:
+      - ./.env
+    ports:
+      - "9001:9001"
+
+  tts:
+    build:
+      context: ./services/tts
+      target: cpu
+    env_file:
+      - ./.env
+    ports:
+      - "9002:9002"
