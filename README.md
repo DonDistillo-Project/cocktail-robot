@@ -33,7 +33,6 @@ https://github.com/user-attachments/assets/4040f2ff-ef4b-4da3-9fca-8928fee331a7
   - **Microphone:** INMP441 MEMS  
   - **Speaker Driver:** SparkFun I2S Audio Breakout  
   - **Display:** Waveshare 1.3-inch LCD
-- An ESP32 microcontroller.
 
 ### GPU Acceleration (Optional)
 
