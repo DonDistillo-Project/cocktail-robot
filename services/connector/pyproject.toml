@@ -1,6 +1,7 @@
 [project]
 name = "connector"
 version = "0.1.0"
+readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [
     "openai>=1.84.0",

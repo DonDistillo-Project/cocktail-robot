@@ -1,68 +1,64 @@
-This directory contains the TTS server module, which uses [RealtimeTTS](https://github.com/KoljaB/RealtimeTTS) under the hood. It can use either a cloud service (Azure) or a local model (Coqui) as a backend.
+# TTS (Text-to-Speech) Service
 
-## Running with cloud backend
+This service synthesizes text to audio using [RealtimeTTS](https://github.com/KoljaB/RealtimeTTS). It can use either a cloud service (Azure) or a local model (Coqui) as a backend.
 
-> [!NOTE]  
-> This will use Azure's TTS service as a backend, so the environment variables `AZURE_SPEECH_KEY` and `AZURE_REGION` need to be set.
+## Requirements
 
-1. Starting from the root directory of the repo:
+- For GPU mode (local backend):
+    - CUDA-capable GPU
+    - NVIDIA driver ≥ 12.9
+    - [NVIDIA Container Toolkit](https://docs.nvidia.com/datacenter/cloud-native/container-toolkit/latest/install-guide.html)
 
-```bash
-cd services/tts/
-```
+## Usage
 
-2. Build:
+### Using Docker (recommended)
 
-```bash
-docker build -t tts-server --target cpu .
-```
+It is recommended to use the Docker Compose files in the root of the repository to run this service. See the [main README.md](../../README.md) for more information.
 
-3. Run:
+### Manual execution
 
-```bash
-docker run -p 9002:9002 tts-server
-```
+This service can be run with a cloud backend (CPU) or a local backend (GPU). From this directory (`services/tts`):
 
-The container listens on port `9002`.
+**Cloud Backend (CPU):**
 
+1.  Build the Docker image:
 
-## Running locally
+    ```bash
+    docker build --target cpu -t tts-server .
+    ```
 
-### Requirements
+2.  Run the Docker container:
 
-For GPU mode:
+    ```bash
+    docker run -p 9002:9002 tts-server
+    ```
 
-* CUDA-capable GPU
-* NVIDIA driver ≥12.9
-* NVIDIA Container Toolkit installed
+**Local Backend (GPU):**
 
-### Usage
+1.  Build the Docker image:
 
-1. Starting from the root directory of the repo:
+    ```bash
+    docker build --target gpu -t tts-server .
+    ```
 
-```bash
-cd services/tts/
-```
+2.  Run the Docker container:
 
-2. Build
+    ```bash
+    docker run --gpus all -p 9002:9002 tts-server
+    ```
 
-```bash
-docker build -t tts-server --target gpu .
-```
+The service will be available on port `9002`.
 
-3. Run
+## Environment Variables
 
-```bash
-docker run --gpus all -p 9002:9002 tts-server
-```
-
-The container listens on port `9002`.
+- `AZURE_SPEECH_KEY`: Your Azure Speech API key (only for cloud backend).
+- `AZURE_REGION`: The Azure region for your Speech service (only for cloud backend).
 
 ## Testing
 
-This directory also contains a simple test client where you can enter text that the TTS service should synthesize.
+A simple test client is included in this directory. You can enter text that the TTS service should synthesize.
 
-Run it using:
+Run it with:
 
 ```bash
 uv run test_client.py

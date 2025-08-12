@@ -1,65 +1,53 @@
-# STT Service
+# STT (Speech-to-Text) Service
 
-This directory contains the STT (speech-to-text) server module, which uses [RealtimeSTT](https://github.com/KoljaB/RealtimeSTT) under the hood.
-It supports either CPU or GPU execution and runs entirely locally.
+This service transcribes audio from the microphone to text using [RealtimeSTT](https://github.com/KoljaB/RealtimeSTT). It can run on either CPU or GPU.
 
-## Running in CPU mode
+## Requirements
 
-1. From the root of the repository:
+- For GPU mode:
+    - CUDA-capable GPU
+    - NVIDIA driver ≥ 12.9
+    - [NVIDIA Container Toolkit](https://docs.nvidia.com/datacenter/cloud-native/container-toolkit/latest/install-guide.html)
 
-```bash
-cd services/stt/
-```
+## Usage
 
-2. Build:
+### Using Docker (recommended)
 
-```bash
-docker build \
-  --target cpu \
-  -t stt-server .
-```
+It is recommended to use the Docker Compose files in the root of the repository to run this service. See the [main README.md](../../README.md) for more information.
 
-3. Run:
+### Manual execution
 
-```bash
-docker run -p 9001:9001 stt-server
-```
+This service can be run in either CPU or GPU mode. From this directory (`services/stt`):
 
-The container listens on port `9001`.
+**CPU Mode:**
 
+1.  Build the Docker image:
 
-## Running in GPU mode
+    ```bash
+    docker build --target cpu -t stt-server .
+    ```
 
-### Requirements
+2.  Run the Docker container:
 
-* CUDA-capable GPU
-* NVIDIA driver ≥ 12.9
-* [NVIDIA Container Toolkit](https://docs.nvidia.com/datacenter/cloud-native/container-toolkit/latest/install-guide.html) installed
+    ```bash
+    docker run -p 9001:9001 stt-server
+    ```
 
-### Usage
+**GPU Mode:**
 
-1. From the root of the repository:
+1.  Build the Docker image:
 
-```bash
-cd services/stt/
-```
+    ```bash
+    docker build --target gpu -t stt-server .
+    ```
 
-2. Build:
+2.  Run the Docker container:
 
-```bash
-docker build \
-  --target gpu \
-  -t stt-server .
-```
+    ```bash
+    docker run --gpus all -p 9001:9001 stt-server
+    ```
 
-3. Run:
-
-```bash
-docker run --gpus all -p 9001:9001 stt-server
-```
-
-The container listens on port `9001`.
-
+The service will be available on port `9001`.
 
 ## Testing
 
@@ -71,10 +59,8 @@ Run it with:
 uv run test_client.py
 ```
 
-
 ## About the pvporcupine shim
 
-RealtimeSTT imports pvporcupine at startup for wake-word detection, even if wake words aren’t used.
-pvporcupine ships native binaries that can fail to load on Linux/arm64 (Apple Silicon Docker), which would break the container.
+RealtimeSTT imports `pvporcupine` at startup for wake-word detection, even if wake words aren’t used. `pvporcupine` ships native binaries that can fail to load on Linux/arm64 (Apple Silicon Docker), which would break the container.
 
-To avoid this, a small pvporcupine.py file is placed in the service’s source tree. This acts as a shim — it overrides the real package so imports succeed, but no native code is loaded. The shim’s create() function raises an error if wake words are ever enabled.”
+To avoid this, a small `pvporcupine.py` file is placed in the service’s source tree. This acts as a shim — it overrides the real package so imports succeed, but no native code is loaded. The shim’s `create()` function raises an error if wake words are ever enabled.
