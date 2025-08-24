@@ -90,7 +90,7 @@ When running in GPU mode (`docker-compose.gpu.yml`), the TTS service runs a loca
 > [!IMPORTANT]
 > Make sure the ESP32 is running and connected to the network before starting the services.
 
-You can run the services in either CPU or GPU mode.
+You can run the services in either CPU or GPU mode
 
 **CPU Mode:**
 
